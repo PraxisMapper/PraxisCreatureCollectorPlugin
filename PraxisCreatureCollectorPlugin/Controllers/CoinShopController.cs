@@ -1,10 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using PraxisCore;
-using static CreatureCollectorAPI.CommonHelpers;
-using static CreatureCollectorAPI.CreatureCollectorGlobals;
+using static PraxisCreatureCollectorPlugin.CommonHelpers;
+using static PraxisCreatureCollectorPlugin.CreatureCollectorGlobals;
 
-namespace CreatureCollectorAPI.Controllers
+namespace PraxisCreatureCollectorPlugin.Controllers
 {
     public class CoinShopController : Controller
     {

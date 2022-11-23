@@ -3,7 +3,7 @@ using PraxisCore;
 using PraxisCore.Support;
 using System.Globalization;
 
-namespace CreatureCollectorAPI.Controllers
+namespace PraxisCreatureCollectorPlugin.Controllers
 {
     public class CreatureAdminController : Controller
     {

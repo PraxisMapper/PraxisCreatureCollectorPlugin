@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using PraxisCore;
-using static CreatureCollectorAPI.CommonHelpers;
+using static PraxisCreatureCollectorPlugin.CommonHelpers;
 
-namespace CreatureCollectorAPI.Controllers
+namespace PraxisCreatureCollectorPlugin.Controllers
 {
     public class ImproveController : Controller
     {

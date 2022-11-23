@@ -1,4 +1,4 @@
-﻿namespace CreatureCollectorAPI
+﻿namespace PraxisCreatureCollectorPlugin
 {
     public class ClaimData
     {

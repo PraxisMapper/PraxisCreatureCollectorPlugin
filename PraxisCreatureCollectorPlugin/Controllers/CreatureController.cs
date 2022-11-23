@@ -4,11 +4,11 @@ using Microsoft.Extensions.Caching.Memory;
 using PraxisCore;
 using PraxisCore.Support;
 using System.Text;
-using static CreatureCollectorAPI.CommonHelpers;
-using static CreatureCollectorAPI.CreatureCollectorGlobals;
+using static PraxisCreatureCollectorPlugin.CommonHelpers;
+using static PraxisCreatureCollectorPlugin.CreatureCollectorGlobals;
 using static PraxisCore.DbTables;
 
-namespace CreatureCollectorAPI.Controllers
+namespace PraxisCreatureCollectorPlugin.Controllers
 {
     [ApiController]
     [Route("[controller]")]

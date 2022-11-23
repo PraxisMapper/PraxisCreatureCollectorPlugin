@@ -1,7 +1,7 @@
 ﻿using static PraxisCore.DbTables;
 using PraxisCore;
 
-namespace CreatureCollectorAPI
+namespace PraxisCreatureCollectorPlugin
 {
     public static class Styles
     {

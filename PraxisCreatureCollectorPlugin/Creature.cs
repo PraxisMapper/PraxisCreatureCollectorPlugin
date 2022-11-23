@@ -1,6 +1,6 @@
 ﻿using PraxisCore;
 
-namespace CreatureCollectorAPI
+namespace PraxisCreatureCollectorPlugin
 {
     //NOTE:
     // Terrain/area/place spawns all apply. A creature can spawn at Parks, 82GM0000+00, and 'Pine Street' without interference.

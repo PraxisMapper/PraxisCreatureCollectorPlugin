@@ -5,10 +5,10 @@ using Microsoft.Extensions.Caching.Memory;
 using PraxisCore;
 using System.Text;
 using System.Text.Json;
-using static CreatureCollectorAPI.CommonHelpers;
-using static CreatureCollectorAPI.CreatureCollectorGlobals;
+using static PraxisCreatureCollectorPlugin.CommonHelpers;
+using static PraxisCreatureCollectorPlugin.CreatureCollectorGlobals;
 
-namespace CreatureCollectorAPI.Controllers
+namespace PraxisCreatureCollectorPlugin.Controllers
 {
     //TIBO: The Immortal Battle for Ohio, the original reference implementation.
     //This handles the 'core' stuff related to the game, like account data and getting/setting non-game-mode stuff like ProxyPlay point.

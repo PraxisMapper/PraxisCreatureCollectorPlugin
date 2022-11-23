@@ -4,10 +4,10 @@ using NetTopologySuite.Geometries;
 using PraxisCore;
 using PraxisCore.Support;
 using System.Text.Json;
-using static CreatureCollectorAPI.CommonHelpers;
+using static PraxisCreatureCollectorPlugin.CommonHelpers;
 using static PraxisCore.DbTables;
 
-namespace CreatureCollectorAPI.Controllers
+namespace PraxisCreatureCollectorPlugin.Controllers
 {
     public class CoverController : Controller
     {

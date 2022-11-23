@@ -1,6 +1,6 @@
 ﻿using System.Collections.Concurrent;
 
-namespace CreatureCollectorAPI
+namespace PraxisCreatureCollectorPlugin
 {
     //These get JSON parsed to and from the client, so naming might be lower-case to match up there.
     public class Account

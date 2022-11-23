@@ -1,6 +1,6 @@
 ﻿using PraxisCore;
 
-namespace CreatureCollectorAPI
+namespace PraxisCreatureCollectorPlugin
 {
     public class Config
     {

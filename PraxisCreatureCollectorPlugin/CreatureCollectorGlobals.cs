@@ -3,7 +3,7 @@ using NetTopologySuite.Geometries;
 using PraxisCore;
 using System.Collections.Concurrent;
 
-namespace CreatureCollectorAPI
+namespace PraxisCreatureCollectorPlugin
 {
     public static class CreatureCollectorGlobals
     {

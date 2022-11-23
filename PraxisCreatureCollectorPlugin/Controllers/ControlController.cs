@@ -1,9 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using PraxisCore;
 using System.Text.Json;
-using static CreatureCollectorAPI.CommonHelpers;
+using static PraxisCreatureCollectorPlugin.CommonHelpers;
 
-namespace CreatureCollectorAPI.Controllers
+namespace PraxisCreatureCollectorPlugin.Controllers
 {
     //Control mode is the territory-control PVP mode in TIBO.
     public class ControlController : Controller

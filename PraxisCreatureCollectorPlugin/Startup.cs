@@ -1,11 +1,11 @@
-﻿using CreatureCollectorAPI.Controllers;
+﻿using PraxisCreatureCollectorPlugin.Controllers;
 using Microsoft.EntityFrameworkCore;
 using PraxisCore;
 using PraxisCore.Support;
 using PraxisMapper.Classes;
-using static CreatureCollectorAPI.CreatureCollectorGlobals;
+using static PraxisCreatureCollectorPlugin.CreatureCollectorGlobals;
 
-namespace CreatureCollectorAPI
+namespace PraxisCreatureCollectorPlugin
 {
     public class CreatureStartup : IPraxisStartup
     {

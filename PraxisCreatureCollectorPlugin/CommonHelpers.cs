@@ -3,9 +3,9 @@ using NetTopologySuite.Geometries;
 using PraxisCore;
 using PraxisCore.Support;
 using System.Globalization;
-using static CreatureCollectorAPI.CreatureCollectorGlobals;
+using static PraxisCreatureCollectorPlugin.CreatureCollectorGlobals;
 
-namespace CreatureCollectorAPI
+namespace PraxisCreatureCollectorPlugin
 {
     //TODO: Split this into smaller helper classes. Probably per game mode.
     public static class CommonHelpers
