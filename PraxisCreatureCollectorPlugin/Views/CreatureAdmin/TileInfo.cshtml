@@ -1,0 +1,38 @@
+﻿@*
+    For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+*@
+@{
+    var pleasefuckingwork = new Microsoft.AspNetCore.Components.MarkupString(ViewBag.spawnTableRaw);
+}
+
+Map Tile Info for @ViewBag.plusCode:
+<br />
+<img src="@ViewBag.imageString" />
+<br />
+Rendering time: @ViewBag.timeToDraw
+<br />
+OSM Elements Loaded: @ViewBag.placeCount
+<br />
+Spawn Table generation time: @ViewBag.spawnGenTime
+<br />
+Spawn Table:
+<br />
+<ul>
+@foreach (var st in ViewBag.spawnTable)
+{
+    <li>@st</li>
+}
+</ul>
+
+<br />
+Seed: @ViewBag.seed
+<br />
+Weeks Nest Active: @ViewBag.weeksNestActive
+<br />
+Nest Terrain Type: @ViewBag.nestType
+<br />
+Nest Size: @ViewBag.nestSize
+<br />
+Wandering Creature Presences:
+<br />
+@ViewBag.wanderers
