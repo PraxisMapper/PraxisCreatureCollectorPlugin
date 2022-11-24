@@ -10,5 +10,5 @@ Server-side logic for Creature Collector games.
 * Optional: Set the placeExcludes value in the GlobalDataEntries to pick any elements you want to have removed from the gameplay boundaries in the same format (EX: use ["4039900-3"] to have Lake Erie removed from the boundary element.)
 
 # Licensing
-The code presented here (settings and .lua files) are under the MIT license.
+The code presented here (settings, projects, and .cs files) are under the MIT license.
 Graphics are released under a CC BY-SA 4.0 license.
