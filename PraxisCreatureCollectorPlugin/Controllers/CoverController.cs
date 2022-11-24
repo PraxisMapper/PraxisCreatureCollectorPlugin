@@ -201,7 +201,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
 
             foreach (var c in creatures)
             {
-                if (c.Value.scouting == 0) //Shouldn't happen. May be a testing thing on my debug account. TODO remove
+                if (c.Value.scouting == 0)
                     continue;
 
                 //We will use the CENTER for drawing these, since that looks better on maps and is what everyone expects to see.
@@ -213,6 +213,9 @@ namespace PraxisCreatureCollectorPlugin.Controllers
                 var drawnGeo = point.Buffer(c.Value.scouting * .000125);
                 mapItems.Add(new DbTables.Place() { Tags = tags, ElementGeometry = drawnGeo, AreaSize = drawnGeo.Area, GameElementName = c.Value.creatureId.ToString() });
             }
+
+            if (mapItems.Count == 0)
+                return StatusCode(500);
 
             var northExtent = mapItems.Max(m => m.ElementGeometry.EnvelopeInternal.MaxY);
             var southExtent = mapItems.Min(m => m.ElementGeometry.EnvelopeInternal.MinY);
