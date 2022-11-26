@@ -305,6 +305,13 @@ namespace PraxisCreatureCollectorPlugin.Controllers
                 return code;
 
             var newCode = PraxisCore.Place.RandomPoint(cache.Get<DbTables.ServerSetting>("settings"));
+            var polyCode = newCode.ToPolygon();
+            while (!polyCode.Intersects(CreatureCollectorGlobals.playBoundary.ElementGeometry)) //This will make sure the generated area actually appears inside the play area.
+            {
+                newCode = PraxisCore.Place.RandomPoint(cache.Get<DbTables.ServerSetting>("settings"));
+                polyCode = newCode.ToPolygon();
+            }
+
             cache.Set("suggestedProxyPoint", newCode, AbsoluteExpiration12Hr);
             return newCode;
         }
