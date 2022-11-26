@@ -718,8 +718,8 @@ namespace PraxisCreatureCollectorPlugin
             l.Add(rdragon);
 
             //Post-processing: As a safety check, remove creatures that we know will not spawn in-game, in case we haven't moved them
-            var posibleOobCreatures = l.Where(entry => (entry.areaSpawns.Count > 0 && entry.placeSpawns.Count == 0 && entry.specificSpawns.Count == 0)).ToList();
-            foreach(var c in posibleOobCreatures)
+            var posibleOobCreatures = l.Where(entry => (entry.areaSpawns.Count > 0 && entry.areaSpawns.All(a => a.Key != "") && entry.placeSpawns.Count == 0 && entry.specificSpawns.Count == 0)).ToList();
+            foreach (var c in posibleOobCreatures)
             {
                 var areas = c.areaSpawns.Select(s => s.Key.ToPolygon()).ToList();
                 if (!areas.Any(a => CreatureCollectorGlobals.playBoundary.ElementGeometry.Intersects(a)))

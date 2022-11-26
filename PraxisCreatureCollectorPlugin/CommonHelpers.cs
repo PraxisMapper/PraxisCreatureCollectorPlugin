@@ -260,6 +260,8 @@ namespace PraxisCreatureCollectorPlugin
             bool saveCreatures = false;
 
             var taskData = GenericData.GetSecurePlayerData<Dictionary<string, ImprovementTasks>>(accountId, "taskInfo", password);
+            if (taskData == null)
+                taskData = ImprovementTasks.DefaultTasks.ToDictionary(k => k.id, v => v);
 
             foreach (var t in taskData)
             {
