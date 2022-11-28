@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using PraxisCore;
+using PraxisMapper.Classes;
 using System.Text;
 using System.Text.Json;
 using static PraxisCreatureCollectorPlugin.CommonHelpers;
@@ -27,7 +28,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         [Route("/[controller]/Account/Create")] 
         public bool CreateAccount()
         {
-            GetAuthInfo(Response, out var accountName, out var password2);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountName, out var password2);
 
             var existsCheck = GenericData.GetPlayerData(accountName, "account"); //this will show us encrypted data exists but not decode it.
             if (existsCheck.Length > 0)
@@ -89,7 +90,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         public bool SetPlayerTeam(long teamId)
         {
             Response.Headers.Add("X-noPerfTrack", "Tibo/Team/VARSREMOVED");
-            GetAuthInfo(Response, out var accountId, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
             var playerLock = GetUpdateLock(accountId);
             lock (playerLock)
             {
@@ -123,7 +124,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
 
             //take a PlusCode, set the point.
             Response.Headers.Add("X-noPerfTrack", "Tibo/ProxyPlay/VARSREMOVED");
-            GetAuthInfo(Response, out var accountId, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
             string response = "";
             var playerLock = GetUpdateLock(accountId);
             lock (playerLock)
@@ -157,7 +158,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         {
             //This function is by far the slowest part of startup, mostly due to the daily creature audit. Skipping that this is much faster.
             Response.Headers.Add("X-noPerfTrack", "Tibo/Account/VARSREMOVED");
-            GetAuthInfo(Response, out var accountName, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountName, out var password);
 
             Account account;
             var playerLock = GetUpdateLock(accountName);
@@ -191,7 +192,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         public bool DeleteAccount()
         {
             Response.Headers.Add("X-noPerfTrack", "Tibo/DeleteAccount/VARSREMOVED");
-            GetAuthInfo(Response, out var accountName, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountName, out var password);
             //NOTE: core PraxisMapper server will handle removing DB entries on DELETE /Account/accountId. I only have to handle removing shared data here.
             var playerLock = GetUpdateLock(accountName);
             lock (playerLock)
@@ -284,7 +285,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         public string GetUpdates()
         {
             Response.Headers.Add("X-noPerfTrack", "Tibo/Updates/VARSREMOVED");
-            GetAuthInfo(Response, out var accountId, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
 
             var updateData = "";
             var playerLock = GetUpdateLock(accountId);

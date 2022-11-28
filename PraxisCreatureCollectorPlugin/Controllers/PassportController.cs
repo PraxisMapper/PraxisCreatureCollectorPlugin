@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using PraxisCore;
+using PraxisMapper.Classes;
 using static PraxisCreatureCollectorPlugin.CommonHelpers;
 using static PraxisCreatureCollectorPlugin.CreatureCollectorGlobals;
 
@@ -15,7 +16,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         public Dictionary<string, PassportEntry> GetPassportData()
         {
             Response.Headers.Add("X-noPerfTrack", "Creature/Passport/VARSREMOVED-GET");
-            GetAuthInfo(Response, out var accountId, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
             var entries = GenericData.GetSecurePlayerData<Dictionary<string, PassportEntry>>(accountId, "passport", password);
             if (entries == null)
             {
@@ -35,7 +36,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
             Response.Headers.Add("X-noPerfTrack", "Passport/Stamp/VARSREMOVED");
             if (!DataCheck.IsInBounds(plusCode))
                 return "";
-            GetAuthInfo(Response, out var account, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var account, out var password);
             string response = "";
 
             var playerLock = GetUpdateLock(account);

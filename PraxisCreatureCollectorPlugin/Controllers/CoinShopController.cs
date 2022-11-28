@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using PraxisCore;
+using PraxisMapper.Classes;
 using static PraxisCreatureCollectorPlugin.CommonHelpers;
 using static PraxisCreatureCollectorPlugin.CreatureCollectorGlobals;
 
@@ -56,7 +57,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         public ShopEntry BuyFragment(int creatureId)
         {
             //Get player info and shop info.
-            GetAuthInfo(Response, out var accountId, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
             var shopData = GetShopEntries();
             if (!shopData.Any(s => s.creatureId == creatureId))
                 return new ShopEntry();

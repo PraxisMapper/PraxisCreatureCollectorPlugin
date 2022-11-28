@@ -319,16 +319,6 @@ namespace PraxisCreatureCollectorPlugin
             return taskData;
         }
 
-        public static void GetAuthInfo(HttpResponse response, out string account, out string password)
-        {
-            account = "";
-            password = "";
-            if (response.Headers.ContainsKey("X-account"))
-                account = response.Headers["X-account"].ToString();
-            if (response.Headers.ContainsKey("X-internalPwd"))
-                password = response.Headers["X-internalPwd"].ToString();
-        }
-
         public static string GetPasswordFromHeaders(HttpResponse response)
         {
             if (response.Headers.ContainsKey("X-account"))

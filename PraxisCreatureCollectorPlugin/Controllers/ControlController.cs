@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using PraxisCore;
+using PraxisMapper.Classes;
 using System.Text.Json;
 using static PraxisCreatureCollectorPlugin.CommonHelpers;
 
@@ -20,7 +21,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
             Response.Headers.Add("X-noPerfTrack", "Creature/Claim/" + plusCode + "/VARSREMOVED");
             if (!DataCheck.IsInBounds(plusCode))
                 return false;
-            GetAuthInfo(Response, out var accountId, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
 
             bool results = true;
             var playerLock = GetUpdateLock(accountId);

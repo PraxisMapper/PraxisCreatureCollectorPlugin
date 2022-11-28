@@ -7,6 +7,7 @@ using System.Text;
 using static PraxisCreatureCollectorPlugin.CommonHelpers;
 using static PraxisCreatureCollectorPlugin.CreatureCollectorGlobals;
 using static PraxisCore.DbTables;
+using PraxisMapper.Classes;
 
 namespace PraxisCreatureCollectorPlugin.Controllers
 {
@@ -225,7 +226,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         public void BoostChallengeCreature(long baseCreatureId)
         {
             Response.Headers.Add("X-noPerfTrack", "Creature/ChallengeDone/VARSREMOVED");
-            GetAuthInfo(Response, out var accountId, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
             var playerLock = GetUpdateLock(accountId);
             lock (playerLock)
             {
@@ -252,7 +253,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
             Response.Headers.Add("X-noPerfTrack", "Creature/Enter/VARSREMOVED");
             if (!DataCheck.IsInBounds(plusCode))
                 return null;
-            
+            PraxisAuthentication.
             GetAuthInfo(Response, out var accountId, out var password);
 
             var results = new EnterAreaResults();
@@ -380,7 +381,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
                 Response.Headers.Add("X-noPerfTrack", "Creature/Wild/VARSREMOVED"); //Set here because its normally set later in this function and these values must be blocked.
                 return null;
             }
-            GetAuthInfo(Response, out var accountId, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
             List<CustomDataAreaResult> results;
 
             var dataKey = "creature";
@@ -441,7 +442,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         public Dictionary<long, PlayerCreatureInfo> getPlayerCreatureInfo()
         {
             Response.Headers.Add("X-noPerfTrack", "Creature/CreatureInfo/VARSREMOVED");
-            GetAuthInfo(Response, out var accountId, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
             var results = GenericData.GetSecurePlayerData<Dictionary<long, PlayerCreatureInfo>>(accountId, "creatureInfo", password);
             return results;
         }
@@ -451,7 +452,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         [Route("/[controller]/Graduate/{creatureChosenId}/{area}")]
         public bool Graduate(long creatureChosenId, string area)
         {
-            GetAuthInfo(Response, out var accountId, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
             //when a player graduates, update spawn data to make the creature they chose have 1 more entry in the spawn table for the selected area.
             ////Place and Type were considered, but I've chosen not to allow those for now.
             var creature = creaturesById[creatureChosenId];
@@ -556,7 +557,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
 
             long vortexMin = config.CreatureCountToRespawn;
             Response.Headers.Add("X-noPerfTrack", "Creature/Vortex/VARSREMOVED");
-            GetAuthInfo(Response, out var accountId, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
 
             //Sanity checks
             if (plusCode8.Length != 8)

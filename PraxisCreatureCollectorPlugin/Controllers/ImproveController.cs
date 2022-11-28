@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using PraxisCore;
+using PraxisMapper.Classes;
 using static PraxisCreatureCollectorPlugin.CommonHelpers;
 
 namespace PraxisCreatureCollectorPlugin.Controllers
@@ -11,7 +12,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         public void AssignCreature(long creatureId, string taskName)
         {
             Response.Headers.Add("X-noPerfTrack", "Creature/Assign/VARSREMOVED");
-            GetAuthInfo(Response, out var accountId, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
             var playerLock = GetUpdateLock(accountId);
             lock (playerLock)
             {
@@ -44,7 +45,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         {
             //NOTE: this is both 'send over task info' and 'calculate changes in task progress and grant rewards'
             Response.Headers.Add("X-noPerfTrack", "Creature/TaskProgress/VARSREMOVED");
-            GetAuthInfo(Response, out var accountId, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
             Dictionary<string, ImprovementTasks> taskData;
             var playerLock = GetUpdateLock(accountId);
             lock (playerLock)
@@ -62,7 +63,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         {
             Response.Headers.Add("X-noPerfTrack", "Creature/CancelTask/VARSREMOVED");
             Dictionary<string, ImprovementTasks> taskData;
-            GetAuthInfo(Response, out var accountId, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
             var playerLock = GetUpdateLock(accountId);
             lock (playerLock)
             {

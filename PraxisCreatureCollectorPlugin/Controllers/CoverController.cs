@@ -6,6 +6,7 @@ using PraxisCore.Support;
 using System.Text.Json;
 using static PraxisCreatureCollectorPlugin.CommonHelpers;
 using static PraxisCore.DbTables;
+using PraxisMapper.Classes;
 
 namespace PraxisCreatureCollectorPlugin.Controllers
 {
@@ -33,7 +34,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         public CoverModeEntry GetPlacedCreature(string pluscode10)
         {
             Response.Headers.Add("X-noPerfTrack", "Cover/Placed/VARSREMOVED");
-            GetAuthInfo(Response, out var accountId, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
 
             var response = GenericData.GetSecurePlayerData<Dictionary<string, CoverModeEntry>>(accountId, "placedCreatures", password);
             if (response == null)
@@ -64,7 +65,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         public Dictionary<string, CoverModeEntry> GetPlacedCreatureList()
         {
             //TODO: this might not be used, remove it? Or save this for future use?
-            GetAuthInfo(Response, out var accountId, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
             var response = GenericData.GetSecurePlayerData<Dictionary<string, CoverModeEntry>>(accountId, "placedCreatures", password);
             return response;
         }
@@ -77,7 +78,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
             Response.Headers.Add("X-noPerfTrack", "Cover/Placed/VARSREMOVED");
             if (!DataCheck.IsInBounds(plusCode10))
                 return returnValue;
-            GetAuthInfo(Response, out var accountId, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
 
             var playerLock = GetUpdateLock(accountId);
             lock (playerLock)
@@ -138,7 +139,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
                 Response.Headers.Add("X-notes", "OOB");
                 return StatusCode(500);
             }
-            GetAuthInfo(Response, out var accountId, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
             var geoArea = plusCode.ToPolygon();
 
             //get placed creatures.
@@ -190,7 +191,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         {
             //This one is for drawing an image of your whole range of placed creatures. May need caps on maximum area, and should attempt to cover most of the area or drop single outliers first.
             Response.Headers.Add("X-noPerfTrack", "Cover/PlacedFull/VARSREMOVED");
-            GetAuthInfo(Response, out var accountId, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
 
             //get placed creatures.
             var creatures = GenericData.GetSecurePlayerData<Dictionary<string, CoverModeEntry>>(accountId, "placedCreatures", password);

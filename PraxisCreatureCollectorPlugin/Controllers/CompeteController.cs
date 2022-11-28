@@ -9,6 +9,7 @@ using System.Text.Json;
 using static PraxisCreatureCollectorPlugin.CommonHelpers;
 using static PraxisCreatureCollectorPlugin.CreatureCollectorGlobals;
 using static PraxisCore.DbTables;
+using PraxisMapper.Classes;
 
 namespace PraxisCreatureCollectorPlugin.Controllers
 {
@@ -87,7 +88,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
             if (!DataCheck.IsInBounds(plusCode8))
                 return returnValue;
 
-            GetAuthInfo(Response, out var accountId, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
             var playerLock = GetUpdateLock(accountId);
             lock (playerLock)
             {
@@ -278,7 +279,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         {
             //1 player sends up all their available fragments of a creature. If that has more Offense than the placed creature has Defense, it gets defeated.
             //send all fragments back to the players that contributed, remove the geometry attached, redraw all covered map tiles.
-            GetAuthInfo(Response, out var accountId, out var password);
+            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
 
             //get player's creatures, use all available fragments for creature.
             var creatureData = GenericData.GetSecurePlayerData<Dictionary<long, PlayerCreatureInfo>>(accountId, "creatureInfo", password);
