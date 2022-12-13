@@ -63,6 +63,7 @@ namespace PraxisCreatureCollectorPlugin
         //FUTURE EXPANSION: Allow particularly special creatures to run more complicated spawn rules. These shouldn't be run everytime a spawn check is asked for,
         //but it should probably be more often than once at server startup?
         //public Action<bool> customSpawnRule = new Action<bool>(defaultCustomRule);
+        //COULD ALSO add another condition or rule that limits spawning to a region, since currently Areas add rather than restrict. Bounding box, possibly? or a flag to switch areas? or a second set?
 
         public override string ToString()
         {
@@ -716,6 +717,212 @@ namespace PraxisCreatureCollectorPlugin
                 isWild = false
             };
             l.Add(rdragon);
+
+            //Times are estimated to match up with daylight hours, roughly on the starting day of the sign
+            var aries = new Creature()
+            {
+                id = 39,
+                isHidden = true,
+                spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 3, 21), end = new DateOnly(2000, 4, 19) } },
+                spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(7, 30) }, new TimeSpawnEntry() { start = new TimeOnly(19, 30), end = new TimeOnly(23, 59) } },
+                imageName = "aries.png",
+                stats = new LevelStats() { strengthPerLevel = 3.2, defensePerLevel = 3.1, scoutingPerLevel = 3.7, addedPerLevel = 2, multiplierPerLevel = .9 }, //all 12 zodiacs share stats, Tier 2 for rarity.
+                artist = "Drake Williams",
+                rights = "CC BY-SA 4.0 Licensed",
+                flavorText = "Ram fans can go ham and spam you if you call this a goat by accident.",
+                hintText = "While the stars are out, around April",
+            };
+            aries.areaSpawns.Add("", 3);
+            l.Add(aries);
+
+            var taurus = new Creature()
+            {
+                id = 40,
+                isHidden = true,
+                spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 4, 20), end = new DateOnly(2000, 5, 20) } },
+                spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(6, 45) }, new TimeSpawnEntry() { start = new TimeOnly(20, 11), end = new TimeOnly(23, 59) } },
+                imageName = "taurus.png",
+                stats = new LevelStats() { strengthPerLevel = 3.2, defensePerLevel = 3.1, scoutingPerLevel = 3.7, addedPerLevel = 2, multiplierPerLevel = .9 },
+                artist = "Drake Williams",
+                rights = "CC BY-SA 4.0 Licensed",
+                flavorText = "This sign is 100% bull. All horoscopes are, but this one more so.",
+                hintText = "While the stars are out, around May",
+            };
+            taurus.areaSpawns.Add("", 3);
+            l.Add(taurus);
+
+            var gemini = new Creature()
+            {
+                id = 41,
+                isHidden = true,
+                spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 5, 21), end = new DateOnly(2000, 6, 20) } },
+                spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(6, 00) }, new TimeSpawnEntry() { start = new TimeOnly(20, 45), end = new TimeOnly(23, 59) } },
+                imageName = "gemini.png",
+                stats = new LevelStats() { strengthPerLevel = 3.2, defensePerLevel = 3.1, scoutingPerLevel = 3.7, addedPerLevel = 2, multiplierPerLevel = .9 },
+                artist = "Drake Williams",
+                rights = "CC BY-SA 4.0 Licensed",
+                flavorText = "The original Gemini was just one guy that could change clothes really fast. It was a great party trick, and stories got exaggerated just a little more each time until he's twins.",
+                hintText = "While the stars are out, around June",
+            };
+            gemini.areaSpawns.Add("", 3);
+            l.Add(gemini);
+
+            var cancer = new Creature()
+            {
+                id = 42,
+                isHidden = true,
+                spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 6, 21), end = new DateOnly(2000, 7, 22) } },
+                spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(5, 50) }, new TimeSpawnEntry() { start = new TimeOnly(21, 5), end = new TimeOnly(23, 59) } },
+                imageName = "cancer.png",
+                stats = new LevelStats() { strengthPerLevel = 3.2, defensePerLevel = 3.1, scoutingPerLevel = 3.7, addedPerLevel = 2, multiplierPerLevel = .9 },
+                artist = "Drake Williams",
+                rights = "CC BY-SA 4.0 Licensed",
+                flavorText = "Eventually, every constellation evolves into a crab. Just like living creatures.",
+                hintText = "While the stars are out, around July",
+            };
+            cancer.areaSpawns.Add("", 3);
+            l.Add(cancer);
+
+            var leo = new Creature()
+            {
+                id = 43,
+                isHidden = true,
+                spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 7, 23), end = new DateOnly(2000, 8, 22) } },
+                spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(6, 15) }, new TimeSpawnEntry() { start = new TimeOnly(20, 50), end = new TimeOnly(23, 59) } },
+                imageName = "leo.png",
+                stats = new LevelStats() { strengthPerLevel = 3.2, defensePerLevel = 3.1, scoutingPerLevel = 3.7, addedPerLevel = 2, multiplierPerLevel = .9 },
+                artist = "Drake Williams",
+                rights = "CC BY-SA 4.0 Licensed",
+                flavorText = "And now, with a lion remembered, we can release this back into the sky with a mighty roar. But next time, please remember a much prouder lion.",
+                hintText = "While the stars are out, around August",
+            };
+            leo.areaSpawns.Add("", 3);
+            l.Add(leo);
+
+            var virgo = new Creature()
+            {
+                id = 44,
+                isHidden = true,
+                spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 8, 22), end = new DateOnly(2000, 9, 22) } },
+                spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(6, 45) }, new TimeSpawnEntry() { start = new TimeOnly(20, 15), end = new TimeOnly(23, 59) } },
+                imageName = "virgo.png",
+                stats = new LevelStats() { strengthPerLevel = 3.2, defensePerLevel = 3.1, scoutingPerLevel = 3.7, addedPerLevel = 2, multiplierPerLevel = .9 },
+                artist = "Drake Williams",
+                rights = "CC BY-SA 4.0 Licensed",
+                flavorText = "Nothing about this set of stars or symbols looks anything like wheat to me. Wheat's the important part of this sign!",
+                hintText = "While the stars are out, around September",
+            };
+            virgo.areaSpawns.Add("", 3);
+            l.Add(virgo);
+
+            var libra = new Creature()
+            {
+                id = 45,
+                isHidden = true,
+                spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 9, 23), end = new DateOnly(2000, 10, 22) } },
+                spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(7, 15) }, new TimeSpawnEntry() { start = new TimeOnly(19, 15), end = new TimeOnly(23, 59) } },
+                imageName = "libra.png",
+                stats = new LevelStats() { strengthPerLevel = 3.2, defensePerLevel = 3.1, scoutingPerLevel = 3.7, addedPerLevel = 2, multiplierPerLevel = .9 },
+                artist = "Drake Williams",
+                rights = "CC BY-SA 4.0 Licensed",
+                flavorText = "Libra as is beer, or Libra as in freedom? What license is this constellation assembled under?",
+                hintText = "While the stars are out, around October",
+            };
+            libra.areaSpawns.Add("", 3);
+            l.Add(libra);
+
+            var scorpio = new Creature()
+            {
+                id = 46,
+                isHidden = true,
+                spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 10, 23), end = new DateOnly(2000, 11, 21) } },
+                spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(7, 45) }, new TimeSpawnEntry() { start = new TimeOnly(18, 30), end = new TimeOnly(23, 59) } },
+                imageName = "scorpio.png",
+                stats = new LevelStats() { strengthPerLevel = 3.2, defensePerLevel = 3.1, scoutingPerLevel = 3.7, addedPerLevel = 2, multiplierPerLevel = .9 },
+                artist = "Drake Williams",
+                rights = "CC BY-SA 4.0 Licensed",
+                flavorText = "8th entry, 8 legs, 18 stars, 0 mercy.",
+                hintText = "While the stars are out, around November",
+            };
+            scorpio.areaSpawns.Add("", 3);
+            l.Add(scorpio);
+
+            var sagittarius = new Creature()
+            {
+                id = 47,
+                isHidden = true,
+                spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 11, 22), end = new DateOnly(2000, 12, 21) } },
+                spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(7, 20) }, new TimeSpawnEntry() { start = new TimeOnly(17, 0), end = new TimeOnly(23, 59) } },
+                imageName = "sagittarius.png",
+                stats = new LevelStats() { strengthPerLevel = 3.2, defensePerLevel = 3.1, scoutingPerLevel = 3.7, addedPerLevel = 2, multiplierPerLevel = .9 },
+                artist = "Drake Williams",
+                rights = "CC BY-SA 4.0 Licensed",
+                flavorText = "Chiron, as illustrated in the sky here, is the only centaur capable of hitting 1,479 horsepower.",
+                hintText = "While the stars are out, around December",
+            };
+            sagittarius.areaSpawns.Add("", 3);
+            l.Add(sagittarius);
+
+            var capricorn = new Creature()
+            {
+                id = 48,
+                isHidden = true,
+                spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 12, 22), end = new DateOnly(2000, 12, 31) }, new DateSpawnEntry() { start = new DateOnly(2000, 1, 1), end = new DateOnly(2000, 1, 19) } },
+                spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(7, 50) }, new TimeSpawnEntry() { start = new TimeOnly(17, 0), end = new TimeOnly(23, 59) } },
+                imageName = "capricorn.png",
+                stats = new LevelStats() { strengthPerLevel = 3.2, defensePerLevel = 3.1, scoutingPerLevel = 3.7, addedPerLevel = 2, multiplierPerLevel = .9 },
+                artist = "Drake Williams",
+                rights = "CC BY-SA 4.0 Licensed",
+                flavorText = "The largest goat possible to simulate in a video game. There are none bigger.",
+                hintText = "While the stars are out, around January",
+            };
+            capricorn.areaSpawns.Add("", 3);
+            l.Add(capricorn);
+
+            var aquarius = new Creature()
+            {
+                id = 49,
+                isHidden = true,
+                spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 1, 20), end = new DateOnly(2000, 2, 18) } },
+                spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(7, 50) }, new TimeSpawnEntry() { start = new TimeOnly(17, 30), end = new TimeOnly(23, 59) } },
+                imageName = "aquarius.png",
+                stats = new LevelStats() { strengthPerLevel = 3.2, defensePerLevel = 3.1, scoutingPerLevel = 3.7, addedPerLevel = 2, multiplierPerLevel = .9 },
+                artist = "Drake Williams",
+                rights = "CC BY-SA 4.0 Licensed",
+                flavorText = "Why is the water-bearer associated with the element of air? Are you sure you remembered that right?",
+                hintText = "While the stars are out, around February",
+            };
+            aquarius.areaSpawns.Add("", 3);
+            l.Add(aquarius);
+
+            var pisces = new Creature()
+            {
+                id = 50,
+                isHidden = true,
+                spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 2, 19), end = new DateOnly(2000, 3, 20) } },
+                spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(7, 15) }, new TimeSpawnEntry() { start = new TimeOnly(18, 0), end = new TimeOnly(23, 59) } },
+                imageName = "pisces.png",
+                stats = new LevelStats() { strengthPerLevel = 3.2, defensePerLevel = 3.1, scoutingPerLevel = 3.7, addedPerLevel = 2, multiplierPerLevel = .9 },
+                artist = "Drake Williams",
+                rights = "CC BY-SA 4.0 Licensed",
+                flavorText = "In strong competition with Virgo for the most delicious constellation. Fish without chips is a hard sell, though.",
+                hintText = "While the stars are out, around March",
+            };
+            pisces.areaSpawns.Add("", 3);
+            l.Add(pisces);
+
+            var ophiuchus = new Creature()
+            {
+                id = 51,
+                isHidden = true,
+                stats = new LevelStats() { strengthPerLevel = 6.4, defensePerLevel = 6.2, scoutingPerLevel = 7.4, addedPerLevel = 1, multiplierPerLevel = .85 }, //Tier 4, requires 12 players to coordinate for each grant of this.
+                imageName = "ophiuchus.png",
+                artist = "Drake Williams",
+                rights = "CC BY-SA 4.0 Licensed",
+                flavorText = "Buy all 12 constellations, get the 13th for just one penny!",
+                hintText = "Get all 12 Zodiac constellations in one Place.",
+            };
+            l.Add(ophiuchus);
 
             //Post-processing: As a safety check, remove creatures that we know will not spawn in-game, in case we haven't moved them
             var posibleOobCreatures = l.Where(entry => (entry.areaSpawns.Count > 0 && entry.areaSpawns.All(a => a.Key != "") && entry.placeSpawns.Count == 0 && entry.specificSpawns.Count == 0)).ToList();
