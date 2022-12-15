@@ -572,6 +572,71 @@ namespace PraxisCreatureCollectorPlugin
                 },
                 StyleMatchRules = new List<StyleMatchRule>() { new StyleMatchRule() { Key = "creatureId", Value = "38", MatchType = "equals" }, }
             },
+            new StyleEntry() { MatchOrder = 39, Name = "aries", StyleSet = "Cover", PaintOperations = new List<StylePaint>() {
+                    new StylePaint() { HtmlColorCode = "cca10000", FillOrStroke = "fill", LineWidthDegrees=0.0000375F, LinePattern= "solid", LayerId = 99,}
+                },
+                StyleMatchRules = new List<StyleMatchRule>() { new StyleMatchRule() { Key = "creatureId", Value = "39", MatchType = "equals" }, }
+            },
+            new StyleEntry() { MatchOrder = 40, Name = "taurus", StyleSet = "Cover", PaintOperations = new List<StylePaint>() {
+                    new StylePaint() { HtmlColorCode = "cca15000", FillOrStroke = "fill", LineWidthDegrees=0.0000375F, LinePattern= "solid", LayerId = 99,}
+                },
+                StyleMatchRules = new List<StyleMatchRule>() { new StyleMatchRule() { Key = "creatureId", Value = "40", MatchType = "equals" }, }
+            },
+            new StyleEntry() { MatchOrder = 41, Name = "gemini", StyleSet = "Cover", PaintOperations = new List<StylePaint>() {
+                    new StylePaint() { HtmlColorCode = "cca1a100", FillOrStroke = "fill", LineWidthDegrees=0.0000375F, LinePattern= "solid", LayerId = 99,}
+                },
+                StyleMatchRules = new List<StyleMatchRule>() { new StyleMatchRule() { Key = "creatureId", Value = "41", MatchType = "equals" }, }
+            },
+            new StyleEntry() { MatchOrder = 42, Name = "cancer", StyleSet = "Cover", PaintOperations = new List<StylePaint>() {
+                    new StylePaint() { HtmlColorCode = "cc626262", FillOrStroke = "fill", LineWidthDegrees=0.0000375F, LinePattern= "solid", LayerId = 99,}
+                },
+                StyleMatchRules = new List<StyleMatchRule>() { new StyleMatchRule() { Key = "creatureId", Value = "42", MatchType = "equals" }, }
+            },
+            new StyleEntry() { MatchOrder = 43, Name = "leo", StyleSet = "Cover", PaintOperations = new List<StylePaint>() {
+                    new StylePaint() { HtmlColorCode = "cc416600", FillOrStroke = "fill", LineWidthDegrees=0.0000375F, LinePattern= "solid", LayerId = 99,}
+                },
+                StyleMatchRules = new List<StyleMatchRule>() { new StyleMatchRule() { Key = "creatureId", Value = "43", MatchType = "equals" }, }
+            },
+            new StyleEntry() { MatchOrder = 44, Name = "virgo", StyleSet = "Cover", PaintOperations = new List<StylePaint>() {
+                    new StylePaint() { HtmlColorCode = "cc008141", FillOrStroke = "fill", LineWidthDegrees=0.0000375F, LinePattern= "solid", LayerId = 99,}
+                },
+                StyleMatchRules = new List<StyleMatchRule>() { new StyleMatchRule() { Key = "creatureId", Value = "44", MatchType = "equals" }, }
+            },
+            new StyleEntry() { MatchOrder = 45, Name = "libra", StyleSet = "Cover", PaintOperations = new List<StylePaint>() {
+                    new StylePaint() { HtmlColorCode = "cc008242", FillOrStroke = "fill", LineWidthDegrees=0.0000375F, LinePattern= "solid", LayerId = 99,}
+                },
+                StyleMatchRules = new List<StyleMatchRule>() { new StyleMatchRule() { Key = "creatureId", Value = "45", MatchType = "equals" }, }
+            },
+            new StyleEntry() { MatchOrder = 46, Name = "scorpio", StyleSet = "Cover", PaintOperations = new List<StylePaint>() {
+                    new StylePaint() { HtmlColorCode = "cc005682", FillOrStroke = "fill", LineWidthDegrees=0.0000375F, LinePattern= "solid", LayerId = 99,}
+                },
+                StyleMatchRules = new List<StyleMatchRule>() { new StyleMatchRule() { Key = "creatureId", Value = "46", MatchType = "equals" }, }
+            },
+            new StyleEntry() { MatchOrder = 47, Name = "sagittairus", StyleSet = "Cover", PaintOperations = new List<StylePaint>() {
+                    new StylePaint() { HtmlColorCode = "cc000056", FillOrStroke = "fill", LineWidthDegrees=0.0000375F, LinePattern= "solid", LayerId = 99,}
+                },
+                StyleMatchRules = new List<StyleMatchRule>() { new StyleMatchRule() { Key = "creatureId", Value = "47", MatchType = "equals" }, }
+            },
+            new StyleEntry() { MatchOrder = 48, Name = "capricorn", StyleSet = "Cover", PaintOperations = new List<StylePaint>() {
+                    new StylePaint() { HtmlColorCode = "cc2b0057", FillOrStroke = "fill", LineWidthDegrees=0.0000375F, LinePattern= "solid", LayerId = 99,}
+                },
+                StyleMatchRules = new List<StyleMatchRule>() { new StyleMatchRule() { Key = "creatureId", Value = "48", MatchType = "equals" }, }
+            },
+            new StyleEntry() { MatchOrder = 49, Name = "aquarius", StyleSet = "Cover", PaintOperations = new List<StylePaint>() {
+                    new StylePaint() { HtmlColorCode = "cc6a006a", FillOrStroke = "fill", LineWidthDegrees=0.0000375F, LinePattern= "solid", LayerId = 99,}
+                },
+                StyleMatchRules = new List<StyleMatchRule>() { new StyleMatchRule() { Key = "creatureId", Value = "49", MatchType = "equals" }, }
+            },
+            new StyleEntry() { MatchOrder = 50, Name = "pisces", StyleSet = "Cover", PaintOperations = new List<StylePaint>() {
+                    new StylePaint() { HtmlColorCode = "cc77003c", FillOrStroke = "fill", LineWidthDegrees=0.0000375F, LinePattern= "solid", LayerId = 99,}
+                },
+                StyleMatchRules = new List<StyleMatchRule>() { new StyleMatchRule() { Key = "creatureId", Value = "50", MatchType = "equals" }, }
+            },
+            new StyleEntry() { MatchOrder = 51, Name = "ophiuchus", StyleSet = "Cover", PaintOperations = new List<StylePaint>() {
+                    new StylePaint() { HtmlColorCode = "cc658200", FillOrStroke = "fill", LineWidthDegrees=0.0000375F, LinePattern= "solid", LayerId = 99,}
+                },
+                StyleMatchRules = new List<StyleMatchRule>() { new StyleMatchRule() { Key = "creatureId", Value = "51", MatchType = "equals" }, }
+            },
 
              //Fallback entry for a creature exists but not a creature-specific style.
             new StyleEntry() { MatchOrder = 9990, Name = "anyCreature", StyleSet = "Cover",
