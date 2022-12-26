@@ -722,7 +722,7 @@ namespace PraxisCreatureCollectorPlugin
             var aries = new Creature()
             {
                 id = 39,
-                isHidden = true,
+                name = "Aries",
                 spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 3, 21), end = new DateOnly(2000, 4, 19) } },
                 spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(7, 30) }, new TimeSpawnEntry() { start = new TimeOnly(19, 30), end = new TimeOnly(23, 59) } },
                 imageName = "aries.png",
@@ -738,7 +738,7 @@ namespace PraxisCreatureCollectorPlugin
             var taurus = new Creature()
             {
                 id = 40,
-                isHidden = true,
+                name = "Taurus",
                 spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 4, 20), end = new DateOnly(2000, 5, 20) } },
                 spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(6, 45) }, new TimeSpawnEntry() { start = new TimeOnly(20, 11), end = new TimeOnly(23, 59) } },
                 imageName = "taurus.png",
@@ -754,7 +754,7 @@ namespace PraxisCreatureCollectorPlugin
             var gemini = new Creature()
             {
                 id = 41,
-                isHidden = true,
+                name = "Gemini",
                 spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 5, 21), end = new DateOnly(2000, 6, 20) } },
                 spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(6, 00) }, new TimeSpawnEntry() { start = new TimeOnly(20, 45), end = new TimeOnly(23, 59) } },
                 imageName = "gemini.png",
@@ -770,7 +770,7 @@ namespace PraxisCreatureCollectorPlugin
             var cancer = new Creature()
             {
                 id = 42,
-                isHidden = true,
+                name = "Cancer",
                 spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 6, 21), end = new DateOnly(2000, 7, 22) } },
                 spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(5, 50) }, new TimeSpawnEntry() { start = new TimeOnly(21, 5), end = new TimeOnly(23, 59) } },
                 imageName = "cancer.png",
@@ -786,7 +786,7 @@ namespace PraxisCreatureCollectorPlugin
             var leo = new Creature()
             {
                 id = 43,
-                isHidden = true,
+                name = "Leo",
                 spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 7, 23), end = new DateOnly(2000, 8, 22) } },
                 spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(6, 15) }, new TimeSpawnEntry() { start = new TimeOnly(20, 50), end = new TimeOnly(23, 59) } },
                 imageName = "leo.png",
@@ -802,7 +802,7 @@ namespace PraxisCreatureCollectorPlugin
             var virgo = new Creature()
             {
                 id = 44,
-                isHidden = true,
+                name = "Virgo",
                 spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 8, 22), end = new DateOnly(2000, 9, 22) } },
                 spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(6, 45) }, new TimeSpawnEntry() { start = new TimeOnly(20, 15), end = new TimeOnly(23, 59) } },
                 imageName = "virgo.png",
@@ -818,7 +818,7 @@ namespace PraxisCreatureCollectorPlugin
             var libra = new Creature()
             {
                 id = 45,
-                isHidden = true,
+                name = "Libra",
                 spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 9, 23), end = new DateOnly(2000, 10, 22) } },
                 spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(7, 15) }, new TimeSpawnEntry() { start = new TimeOnly(19, 15), end = new TimeOnly(23, 59) } },
                 imageName = "libra.png",
@@ -834,7 +834,7 @@ namespace PraxisCreatureCollectorPlugin
             var scorpio = new Creature()
             {
                 id = 46,
-                isHidden = true,
+                name = "Scorpio",
                 spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 10, 23), end = new DateOnly(2000, 11, 21) } },
                 spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(7, 45) }, new TimeSpawnEntry() { start = new TimeOnly(18, 30), end = new TimeOnly(23, 59) } },
                 imageName = "scorpio.png",
@@ -850,7 +850,7 @@ namespace PraxisCreatureCollectorPlugin
             var sagittarius = new Creature()
             {
                 id = 47,
-                isHidden = true,
+                name = "Sagittarius",
                 spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 11, 22), end = new DateOnly(2000, 12, 21) } },
                 spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(7, 20) }, new TimeSpawnEntry() { start = new TimeOnly(17, 0), end = new TimeOnly(23, 59) } },
                 imageName = "sagittarius.png",
@@ -866,7 +866,7 @@ namespace PraxisCreatureCollectorPlugin
             var capricorn = new Creature()
             {
                 id = 48,
-                isHidden = true,
+                name = "Capricorn",
                 spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 12, 22), end = new DateOnly(2000, 12, 31) }, new DateSpawnEntry() { start = new DateOnly(2000, 1, 1), end = new DateOnly(2000, 1, 19) } },
                 spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(7, 50) }, new TimeSpawnEntry() { start = new TimeOnly(17, 0), end = new TimeOnly(23, 59) } },
                 imageName = "capricorn.png",
@@ -882,7 +882,7 @@ namespace PraxisCreatureCollectorPlugin
             var aquarius = new Creature()
             {
                 id = 49,
-                isHidden = true,
+                name = "Aquarius",
                 spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 1, 20), end = new DateOnly(2000, 2, 18) } },
                 spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(7, 50) }, new TimeSpawnEntry() { start = new TimeOnly(17, 30), end = new TimeOnly(23, 59) } },
                 imageName = "aquarius.png",
@@ -898,7 +898,7 @@ namespace PraxisCreatureCollectorPlugin
             var pisces = new Creature()
             {
                 id = 50,
-                isHidden = true,
+                name = "Pisces",
                 spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 2, 19), end = new DateOnly(2000, 3, 20) } },
                 spawnTimes = new List<TimeSpawnEntry>() { new TimeSpawnEntry() { start = new TimeOnly(0, 0), end = new TimeOnly(7, 15) }, new TimeSpawnEntry() { start = new TimeOnly(18, 0), end = new TimeOnly(23, 59) } },
                 imageName = "pisces.png",
@@ -914,6 +914,7 @@ namespace PraxisCreatureCollectorPlugin
             var ophiuchus = new Creature()
             {
                 id = 51,
+                name = "Ophiuchus",
                 isHidden = true,
                 stats = new LevelStats() { strengthPerLevel = 6.4, defensePerLevel = 6.2, scoutingPerLevel = 7.4, addedPerLevel = 1, multiplierPerLevel = .85 }, //Tier 4, requires 12 players to coordinate for each grant of this.
                 imageName = "ophiuchus.png",
