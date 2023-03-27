@@ -3,8 +3,8 @@
 namespace PraxisCreatureCollectorPlugin
 {
     //NOTE:
-    // Terrain/area/place spawns all apply. A creature can spawn at Parks, 82GM0000+00, and 'Pine Street' without interference.
-    // spawn times and seasons apply to all of the above, and to each other. A creature could spawn by the above rules for 3 hours on March 29th.
+    // Terrain/area/place spawns all apply separately. A creature can spawn at Parks, 82GM0000+00, and 'Pine Street' without interference.
+    // spawn times and seasons are applied to all of the above, and to each other. A creature could spawn by the above rules from 11am-1pm on March 29th.
 
     public class TimeSpawnEntry
     {
@@ -38,7 +38,10 @@ namespace PraxisCreatureCollectorPlugin
         public string flavorText { get; set; } //A quick detail or joke to appear when looking at the creature in the creature list scene.
         public string hintText { get; set; } //Short summary on where to find this creature.
         public bool isWild { get; set; } = true; // If false, skip this entry when determining spawn pools.
-        public bool isHidden { get; set; } // If false, skip this entry when filling in lists of creatures and such. For 'secret' creature that don't show up on the list or have hints, and placeholders.
+        /// <summary>
+        /// If false, skip this entry when filling in lists of creatures and such. For 'secret' creature that don't show up on the list or have hints, and placeholders.
+        /// </summary>
+        public bool isHidden { get; set; }
         //Hidden creatures are ones you cannot get if they are not explicitly granted to you. Potentially special reward or event creatures. If you have it, you can see it in your list. If you don't, you will not.
         public long eliteId { get; set; } //if not 0, grant the ID'd creature on an active challenge being completed.
         //NOTE: some creatures may be rewards from tasks in-game by the client and will have this set to 0.
@@ -46,10 +49,8 @@ namespace PraxisCreatureCollectorPlugin
 
         //Shortcut math: shift hours for a plusCode based on distance between 2nd character and F (10th character) in the character list.
         //This isn't perfectly accurate because time zones are stupid, but 20 degrees lines up close enough to an hour that this is reasonable as a shortcut.
-        //NOTE: UTC +0 is 9F, UTC -1 is 9C, 97 is -4, roughly EST. so this math works sufficiently well, in that its max shift is -9/+8 instead of -12/+12
-        //So a creature that spawns from 0:00 to 1:00 UTC will spawn at 8:00-9:00 UTC [20:00-21:00 local time] in the easternmost part of the map, 
-        //and 13:00-14:00 UTC [1:00-2:00 local time] on the westernmost part. it's still "late night" in both cases even though it's not exact.
-        //I decided to shift the time by ~24 minutes per Cell2 if you wanted to accomodate for the creep, or by ~1 minute per Cell4 to be extremely precise.
+        //Times set are UTC, and then we add 84 minutes per Cell2 you move from that line in order to accommodate the difference on the far ends.
+        //NOTE: UTC +0 is 9F, UTC -1 is 9C, 97 is -5.5, roughly EST. so this math works sufficiently well. It may not line up perfectly on local time, but it's close enough.
         //NOTE 2: A creature whose spawn times cross midnight needs to have multiple entries (EX: 10pm-2am is a list of [10pm-11:59PM, 12am-2am] 
         
         public List<TimeSpawnEntry> spawnTimes { get; set; } = new List<TimeSpawnEntry>();
@@ -57,8 +58,18 @@ namespace PraxisCreatureCollectorPlugin
 
         public int tierRating { get { return (int)(stats.strengthPerLevel + stats.defensePerLevel + stats.scoutingPerLevel) / 5; } } //Rough estimate of how strong a creature is. 5 stat points = 1 tier. Cost multiplier in the store, and note for dev when setting up its stats.
 
-        public int wanderOdds = 0; //1 in X chance for any Cell8 tile to have this entry spawn there this week. Based on seeded RNG for each tile.
-        public long wanderSpawnEntries = 0; //How many times this creature gets added to the spawn table when it is present in a cell8.
+        //For the benefit of all players, each non-global creature should have the ability to spawn anywhere randomly. The odds do not need to be high, but should be present.
+        //For rural players, it increases motivation to explore Cell8s that don't otherwise have any terrain/biomes that spawn interesting creatures,
+        //and in those tiles wandering creatures are much easier to find, since they're added to a much smaller spawn pool. 
+        //It also gives urban players in areas dense with terrain/biomes reasons to leave their usual routes, to look for the creatures they can't normally find.
+        //MOST creatures should wander, how rare and how often they move may vary. 
+        //Creatures that are globally present (ignoring date/time restrictions), locked to a specific small area (A specific landmark), or rewards/secrets should NOT wander.
+        //Rough estimate: Each 52 points in wanderOdds means that creature has a 63% chance to show up in any given Cell8 maptile once a year if wanderAfterDays is 7.
+        //A player walking on a lunch break can probably hit 4 or so Cell8 tiles. Putting a creature's odds over 208 means they PROBABLY won't find that creature wander in a year.
+        //Most creatures should be under 200, 'rarely wanders' creatures are probably better set between 300-400, and City-specific creatures should wander much less often (~900ish), 
+        public int wanderOdds = 0; //1 in X chance for any Cell8 tile to have this entry spawn there during a particular block of [wanderAfterDays] days. Based on seeded RNG for each tile.
+        public long wanderSpawnEntries = 0; //How many times this creature gets added to the spawn table when it is present in a cell8. Only a wandering creature if this is over 0.
+        public int wandersAfterDays = 7; //How often this creature wanders. Measured in days. 
 
         //FUTURE EXPANSION: Allow particularly special creatures to run more complicated spawn rules. These shouldn't be run everytime a spawn check is asked for,
         //but it should probably be more often than once at server startup?
@@ -74,9 +85,10 @@ namespace PraxisCreatureCollectorPlugin
         {
             TimeOnly adjustedTime = TimeOnly.FromDateTime(adjustedDate);
 
-            return (spawnTimes.Count == 0 || spawnTimes.Any(s => s.start <= adjustedTime && s.end >= adjustedTime) && 
-                (spawnDates.Count == 0 || spawnDates.Any(s => s.start.DayOfYear <= adjustedDate.DayOfYear && s.end.DayOfYear >= adjustedDate.DayOfYear)));
-                
+            return (
+                (spawnTimes.Count == 0 || spawnTimes.Any(s => s.start <= adjustedTime && s.end >= adjustedTime)) &&
+                (spawnDates.Count == 0 || spawnDates.Any(s => s.start.DayOfYear <= adjustedDate.DayOfYear && s.end.DayOfYear >= adjustedDate.DayOfYear))
+                );
         }
 
         //var creatureX = new Creature()
@@ -146,7 +158,7 @@ namespace PraxisCreatureCollectorPlugin
                 hintText = "Common, found nearly everywhere",
                 eliteId = 2
             };
-            reel.areaSpawns.Add("", 20); //This adds this creature to all areas, is read once per Cell8 (added Value times)
+            reel.areaSpawns.Add("", 10); //This adds this creature to all areas, is read once per Cell8 (added Value times)
             l.Add(reel);
 
             var toreel = new Creature()
@@ -175,7 +187,9 @@ namespace PraxisCreatureCollectorPlugin
                 flavorText = "'Mer' is short for 'meridian', which made sense back when merpeople were only found around the equator.",
                 rights = "CC BY-SA 4.0 Licensed",
                 hintText = "The northern coastline",
-                eliteId = 4
+                eliteId = 4,
+                wanderOdds = 300, //rarer than most, named place.
+                wanderSpawnEntries = 2,
             };
             merman.placeSpawns.Add("Lake Erie", 4);
             l.Add(merman);
@@ -270,7 +284,9 @@ namespace PraxisCreatureCollectorPlugin
                 flavorText = "That bow and lipstick remind me of someone. Haven't seen her in a decade, used to be quite a pill-popper. Wonder what happened to her. Oh, oh no.....",
                 rights = "CC BY-SA 4.0 Licensed",
                 hintText = "Look around cemeteries",
-                eliteId = 10
+                eliteId = 10,
+                wanderOdds = 156,
+                wanderSpawnEntries = 2,
             };
             jinky.terrainSpawns.Add("cemetery", 5);
             l.Add(jinky);
@@ -301,7 +317,9 @@ namespace PraxisCreatureCollectorPlugin
                 flavorText = "This sword is so happy you remembered to add them to your team. They aren't real sure what swords are supposed to do but they're ready to learn.",
                 rights = "CC BY-SA 4.0 Licensed",
                 hintText = "Historical locations",
-                eliteId = 12
+                eliteId = 12,
+                wanderOdds = 220,
+                wanderSpawnEntries = 2,
             };
             caladbolg.terrainSpawns.Add("historical", 5);
             l.Add(caladbolg);
@@ -332,7 +350,9 @@ namespace PraxisCreatureCollectorPlugin
                 flavorText = "It was long believed that the hat was placed on this statue as a prank, and throw in the trash nightly by a custodian. It took 25 years to catch the statue walking over to the trash and taking its hat back.",
                 rights = "CC BY-SA 4.0 Licensed",
                 hintText = "Cemetaries, universities, and historical areas",
-                eliteId = 14
+                eliteId = 14,
+                wanderOdds = 123,
+                wanderSpawnEntries = 2,
             };
             tableaux.terrainSpawns.Add("historical", 2);
             tableaux.terrainSpawns.Add("cemetery", 2);
@@ -359,13 +379,15 @@ namespace PraxisCreatureCollectorPlugin
                 id = 15,
                 name = "BoxTurtle",
                 imageName = "boxturtle.png",
-                stats = new LevelStats() { strengthPerLevel = 1, defensePerLevel =2, scoutingPerLevel = 2,  addedPerLevel = 1, multiplierPerLevel = 1 },
+                stats = new LevelStats() { strengthPerLevel = 1, defensePerLevel = 2, scoutingPerLevel = 2, addedPerLevel = 1, multiplierPerLevel = 1 },
                 activeCatchType = "A",
                 artist = "Drake Williams",
                 flavorText = "Box turtles are quite common in some parts of the state, making homes in marshes that resemble their native territory in the Amazon.",
                 rights = "CC BY-SA 4.0 Licensed",
                 hintText = "Wetlands",
                 eliteId = 16,
+                wanderOdds = 142,
+                wanderSpawnEntries = 2,
             };
             boxturtle.terrainSpawns.Add("wetlands", 5);
             l.Add(boxturtle);
@@ -375,7 +397,7 @@ namespace PraxisCreatureCollectorPlugin
                 id = 16,
                 name = "Octortoise",
                 imageName = "octortise.png",
-                stats = new LevelStats() { strengthPerLevel = 2.4, defensePerLevel = 2.6, scoutingPerLevel = 5,  addedPerLevel = 1, multiplierPerLevel = 1 },
+                stats = new LevelStats() { strengthPerLevel = 2.4, defensePerLevel = 2.6, scoutingPerLevel = 5, addedPerLevel = 1, multiplierPerLevel = 1 },
                 activeCatchType = "A",
                 artist = "Drake Williams",
                 flavorText = "Extremely acrobatic, the northern octortoise is the only reptile you can ship 'Any end up'. Appropriate postage still required.",
@@ -396,8 +418,10 @@ namespace PraxisCreatureCollectorPlugin
                 artist = "Drake Williams",
                 flavorText = "The wooden doublebat is the most common of its genus. Its urban counterpart, the aluminum doublebat, is nearly extinct due to overharvesting and recycling incentives.",
                 rights = "CC BY-SA 4.0 Licensed",
-                hintText = "Cemeteries or Cincinnatti",
-                eliteId = 18
+                hintText = "Cincinnatti",
+                eliteId = 18,
+                wanderOdds = 950, //City area, should be rare.
+                wanderSpawnEntries = 2,
             };
             doublebat.areaSpawns.Add("86FQ", 5);
             doublebat.areaSpawns.Add("86CQ", 5);
@@ -431,7 +455,9 @@ namespace PraxisCreatureCollectorPlugin
                 flavorText = "Once wizards realized money could be used for a lot of spells in place of souls, mimics started showing up in different, less lethal, more adorable forms.",
                 rights = "CC BY-SA 4.0 Licensed",
                 hintText = "Retail areas",
-                eliteId = 20
+                eliteId = 20,
+                wanderOdds = 125,
+                wanderSpawnEntries = 2,
             };
             registarf.terrainSpawns.Add("retail", 5);
             l.Add(registarf);
@@ -462,7 +488,9 @@ namespace PraxisCreatureCollectorPlugin
                 flavorText = "What do you call a fish with no eyes? I named my 'CaveSwimmer, Herald of the Unending Dark'",
                 rights = "CC BY-SA 4.0 Licensed",
                 hintText = "Water and Water-Adjacent areas",
-                eliteId = 22
+                eliteId = 22,
+                wanderOdds = 184,
+                wanderSpawnEntries = 2,
             };
             fsh.terrainSpawns.Add("beach", 2); 
             fsh.terrainSpawns.Add("water", 3);
@@ -494,7 +522,9 @@ namespace PraxisCreatureCollectorPlugin
                 flavorText = "Need to defend your local wetlands? Leave it to this one, they'll take care of it. After a few naps. Eventually. Probably.",
                 rights = "CC BY-SA 4.0 Licensed",
                 hintText = "Wetlands",
-                eliteId = 24
+                eliteId = 24,
+                wanderOdds = 175,
+                wanderSpawnEntries = 2,
             };
             loafer.terrainSpawns.Add("wetlands", 5);
             l.Add(loafer);
@@ -557,7 +587,9 @@ namespace PraxisCreatureCollectorPlugin
                 flavorText = "The glitter rat has spilled their glitter! You know what that means. 6 more weeks of cleaning up glitter.",
                 rights = "CC BY-SA 4.0 Licensed",
                 hintText = "Your starter. How could you have forgotten?",
-                isWild = false
+                isWild = false,
+                wanderOdds = 45, //Common as a wanderer, since it doesn't show up elsewhere.
+                wanderSpawnEntries = 2,
             };
             l.Add(glitterati);
 
@@ -596,7 +628,9 @@ namespace PraxisCreatureCollectorPlugin
                 flavorText = "Getting a suit in 'Autumn Ursine' size requires a specifically trained tailor. The monocle and hat are easy enough to find digging through the rich suburb's trash.",
                 rights = "CC BY-SA 3.0 Licensed.",
                 hintText = "Cleveland and the eastern border.",
-                eliteId = 30
+                eliteId = 30,
+                wanderOdds = 924, //City spawns are rare wanders.
+                wanderSpawnEntries = 2,
             };
             bearocle.areaSpawns.Add("86HW", 5);
             bearocle.areaSpawns.Add("86HX", 5);
@@ -630,7 +664,9 @@ namespace PraxisCreatureCollectorPlugin
                 flavorText = "Per interdimensional treaties and common law, buckeyes are required to be drilled into your memory near the state capital. Sorry about that, can't be helped.",
                 rights = "CC BY-SA 4.0 Licensed",
                 hintText = "State capital",
-                eliteId = 32
+                eliteId = 32,
+                wanderOdds = 894, //City spawns are rare wanderers.
+                wanderSpawnEntries = 2,
             };
             buckeye.areaSpawns.Add("86GR", 5);
             buckeye.areaSpawns.Add("86GV", 5);
@@ -667,6 +703,8 @@ namespace PraxisCreatureCollectorPlugin
                 rights = "CC BY-SA 4.0 Licensed",
                 hintText = "Beaches and Universities",
                 eliteId = 36,
+                wanderOdds = 300, //Significantly rarer than most wanderers.
+                wanderSpawnEntries = 2,
             };
             cactuscat.terrainSpawns.Add("beach", 3);
             cactuscat.terrainSpawns.Add("university", 2);
@@ -697,8 +735,10 @@ namespace PraxisCreatureCollectorPlugin
                 artist = "Drake Williams",
                 flavorText = "For reasons unknown, dragons are one of the few things native to nearly every plane in existence. You're more likely to find a world where trees don't exist than one without dragons.",
                 rights = "CC BY-SA 4.0 Licensed",
-                hintText = "Nature Reserves",
-                eliteId = 36
+                hintText = "Places where money moves around",
+                eliteId = 36,
+                wanderOdds = 264,
+                wanderSpawnEntries = 2,
             };
             gdragon.terrainSpawns.Add("retail", 2);
             l.Add(gdragon);
@@ -925,16 +965,249 @@ namespace PraxisCreatureCollectorPlugin
             };
             l.Add(ophiuchus);
 
+            var frogtional = new Creature() {
+                id = 52,
+                name = "Frogtional",
+                imageName = "frogtional.png",
+                stats = new LevelStats() { strengthPerLevel = 4.5, defensePerLevel = 4.5, scoutingPerLevel = 6, addedPerLevel = 2, multiplierPerLevel = 1.2 }, //Tier3, wetlands and lower spawn rate.
+                activeCatchType = "A",
+                artist = "Drake Williams, remixing work by Brian Gatwicke",
+                flavorText = "The smartest 387/1924th of a frog I've ever seen! They've completely numerated their denominator!",
+                rights = "CC BY 2.0 Licensed",
+                hintText = "Wetlands",
+                eliteId = 53,
+                wanderOdds = 204,
+                wanderSpawnEntries = 2,
+            };
+            frogtional.terrainSpawns.Add("wetlands", 3);
+            l.Add(frogtional);
+
+            var spearfrog = new Creature() {
+                id = 53,
+                name = "Spearfrog",
+                imageName = "spearfrog.png",
+                stats = new LevelStats() { strengthPerLevel = 6, defensePerLevel = 7.5, scoutingPerLevel = 6.5, addedPerLevel = 1, multiplierPerLevel = 1.15 }, //Tier 4
+                activeCatchType = "A",
+                artist = "Drake Williams, modifying image from Tiny RPG Pack at https://ansimuz.itch.io/",
+                flavorText = "The idea of frogs as princes or heroic knights is nearly always singular, whereas cities of frog-people making do with what you can make in a marsh requires a city's worth of them.",
+                rights = "Permitted for use in personal/commerical projects",
+                hintText = "Active Challenge",
+                isWild = false,
+            };
+            l.Add(spearfrog);
+
+            var crab = new Creature() {
+                id = 54,
+                name = "Teeny Crab",
+                imageName = "teenycrab.png",
+                stats = new LevelStats() { strengthPerLevel = 6.2, defensePerLevel = 4, scoutingPerLevel = 4.8, addedPerLevel = 1, multiplierPerLevel = 1.3 },
+                activeCatchType = "A",
+                artist = "Drake Williams",
+                flavorText = "This crab is so small, it can't even hold 5 colors at the same time.",
+                rights = "CC BY-SA 4.0 Licensed",
+                hintText = "Enjoy a day at the beach",
+                eliteId = 55,
+                wanderOdds = 236,
+                wanderSpawnEntries = 2,
+            };
+            crab.terrainSpawns.Add("beach", 5);
+            l.Add(crab);
+
+            var raveCrab = new Creature() {
+                id = 55,
+                name = "Rave Crab",
+                imageName = "ravecrab.png",
+                stats = new LevelStats() { strengthPerLevel = 8, defensePerLevel = 5.2, scoutingPerLevel = 5.8, addedPerLevel = 1, multiplierPerLevel = 1.0 },
+                activeCatchType = "A",
+                artist = "Drake Williams",
+                flavorText = "Glowsticks not to scale. That crab has custom ones made just for them.",
+                rights = "CC BY-SA 4.0 Licensed",
+                hintText = "Active Challenge",
+                isWild = false
+            };
+            l.Add(raveCrab);
+
+            var wizard = new Creature() {
+                id = 56,
+                name = "Wizard",
+                imageName = "wizard.png",
+                stats = new LevelStats() { strengthPerLevel = 4, defensePerLevel = 2, scoutingPerLevel = 4, addedPerLevel = 4, multiplierPerLevel = 1.1 },
+                activeCatchType = "A",
+                artist = "https://ansimuz.itch.io/",
+                flavorText = "I think this wizard is in the wrong game, but I'm too afraid to tell him. You tell him. It's probably fine. He probably won't obliterate you. Probably.",
+                rights = "Permitted for use in personal/commerical projects",
+                hintText = "Cemeteries",
+                eliteId = 57,
+                wanderOdds = 450, //also rarer than most.
+                wanderSpawnEntries = 2,
+            };
+            wizard.terrainSpawns.Add("cemetery", 3); //slightly less common.
+            l.Add(wizard);
+
+            var wizchach = new Creature() {
+                id = 57,
+                name = "Wizchach",
+                imageName = "wizchach.png",
+                stats = new LevelStats() { strengthPerLevel = 5.3, defensePerLevel = 3.3, scoutingPerLevel = 6.4, addedPerLevel = 3, multiplierPerLevel = 1.0 },
+                activeCatchType = "A",
+                artist = "Drake Williams, modifying work from https://ansimuz.itch.io/",
+                flavorText = "The Mirror Image spell makes a duplicate of the caster, and can protect them by making attackers argue if they see 2 wizards, a butterfly in a storm cloud, or seahorses kissing.",
+                rights = "Permitted for use in personal/commerical projects",
+                isWild = false,
+                hintText = "Active Challenge",
+            };
+            l.Add(wizchach);
+
+            //Halloween spawn
+            var hallowiz = new Creature() {
+                id = 58,
+                name = "Hallowiz",
+                imageName = "hallowiz.png",
+                stats = new LevelStats() { strengthPerLevel = 3.5, defensePerLevel = 3.5, scoutingPerLevel = 3, addedPerLevel = 2, multiplierPerLevel = 1.2 },
+                activeCatchType = "A",
+                artist = "Drake Williams, modifying work from https://ansimuz.itch.io/",
+                flavorText = "Prestidigitation is a great spell for palette swaps. Get yourself in the holiday spirit with a quick cantrip and a new color scheme.",
+                rights = "Permitted for use in personal/commerical projects",
+                hintText = "Around Halloween",
+                spawnDates = new List<DateSpawnEntry>() { new DateSpawnEntry() { start = new DateOnly(2000, 10, 28), end = new DateOnly(2000, 11, 3) } }
+            };
+            hallowiz.areaSpawns.Add("", 3);
+            l.Add(hallowiz);
+
+            var doubalum = new Creature() {
+                id = 59,
+                name = "Doubalum",
+                imageName = "doubalum.png",
+                stats = new LevelStats() { strengthPerLevel = 3, defensePerLevel = 2.5, scoutingPerLevel = 4.5, addedPerLevel = 1, multiplierPerLevel = 1.33 },
+                activeCatchType = "A",
+                artist = "Drake Williams",
+                flavorText = "",
+                rights = "CC BY-SA 4.0 Licensed",
+                hintText = "Bring Doublebat north.",
+                isWild = false,
+                eliteId = 60
+            };
+            l.Add(doubalum);
+
+            var tripalum = new Creature() {
+                id = 60,
+                name = "Tripalum",
+                imageName = "tripalum.png",
+                stats = new LevelStats() { strengthPerLevel = 4, defensePerLevel = 3.5, scoutingPerLevel = 7.5, addedPerLevel = 1, multiplierPerLevel = 1.1 },
+                activeCatchType = "A",
+                artist = "Drake Williams",
+                flavorText = "The Aluminum Bat-Winged Fruit Bat Which Is Also A Baseball Bat is not entirely extinct, but conservation efforts will need a catchier name to succeed.",
+                rights = "CC BY-SA 4.0 Licensed",
+                hintText = "Bring Triplebat north.",
+                isWild = false
+            };
+            l.Add(tripalum);
+
+            //The original prototype wandering creature. MOST creatures should wander, The Fool is the creatures that shows how that works.
+            var fool = new Creature() {
+                id = 61,
+                name = "The Fool",
+                imageName = "fool.png",
+                stats = new LevelStats() { strengthPerLevel = 2, defensePerLevel = 2, scoutingPerLevel = 11, addedPerLevel = 2, multiplierPerLevel = 1.4 }, //T3, they're rare and don't upgrade
+                activeCatchType = "",
+                artist = "Drake Williams, modifying original Rider-Waite illustration",
+                flavorText = "The Fool is often seen standing on the edge of a cliff, unaware of the disaster that lies before him. He must never actually fall, or else he becomes The Splat.",
+                rights = "Public Domain",
+                hintText = "Wanders twice a week. Easier in rural areas",
+                isWild = false,
+                isHidden = false,
+                wanderOdds = 26, //Extremely common, intentionally.
+                wanderSpawnEntries = 1, // in rural areas, 1/19 (10+4+4+1) or ~5% odds of spawning when allowed to. Significantly less common in tiles with other spawns.
+                wandersAfterDays = 3, //moves more often than most.
+                eliteId = 0
+            };
+            l.Add(fool);
+
+            var slime = new Creature() {
+                id = 62,
+                name = "Slime",
+                imageName = "slime.png",
+                stats = new LevelStats() { strengthPerLevel = 3, defensePerLevel = 4, scoutingPerLevel = 3, addedPerLevel = 3, multiplierPerLevel = 1.4 }, //Tier 2
+                activeCatchType = "A",
+                artist = "https://ansimuz.itch.io/",
+                flavorText = "Eyes are physiologically part of the brain. These slimes may be the most intelligent creature you'll find here.",
+                rights = "Permitted for use in personal/commerical projects",
+                hintText = "Main Streets",
+                eliteId = 63,
+            };
+            slime.placeSpawns.Add("Main Street", 5); //Most common named entry in Ohio.
+            slime.placeSpawns.Add("North Main Street", 5); //and the variants are all also in the top 10.
+            slime.placeSpawns.Add("South Main Street", 5);
+            slime.placeSpawns.Add("East Main Street", 5);
+            slime.placeSpawns.Add("West Main Street", 5);
+            l.Add(slime);
+
+            var slimeye = new Creature() {
+                id = 63,
+                name = "Slimeye",
+                imageName = "slimeye.png",
+                stats = new LevelStats() { strengthPerLevel = 4, defensePerLevel = 7, scoutingPerLevel = 4, addedPerLevel = 2, multiplierPerLevel = 1.2 },
+                activeCatchType = "",
+                artist = "https://ansimuz.itch.io/",
+                flavorText = "Without a stable, stationary eye, the extra eyes fail to provide any additional depth perception over a single eye. Not so smart now, are you slime?",
+                rights = "Permitted for use in personal/commerical projects",
+                hintText = "Active Challenge",
+                isWild = false,
+                eliteId = 0
+            };
+            l.Add(slimeye);
+
+            var mishipeshu = new Creature() {
+                id = 64,
+                name = "Mishipeshu",
+                imageName = "mishipeshu.png",
+                stats = new LevelStats() { strengthPerLevel = 7, defensePerLevel = 4, scoutingPerLevel = 9, addedPerLevel = 1, multiplierPerLevel = 0.9 },
+                activeCatchType = "A",
+                artist = "Drake Williams, remixing work by davidraju",
+                flavorText = "Water panthers are best known for living in the Great Lakes, but have been moving south into smaller rivers and ponds because of waterfront housing prices.",
+                rights = "CC BY-SA 4.0 Licensed",
+                hintText = "Rare water spawn",
+                eliteId = 65,
+                wanderOdds = 280, //rarer than most wanderers.
+                wanderSpawnEntries = 2,
+            };
+            mishipeshu.terrainSpawns.Add("water", 1);
+            l.Add(mishipeshu);
+
+            var weshipeshu = new Creature() {
+                id = 65,
+                name = "We-shipeshu", //WE-shipeshu, a small group of them. Or a cerebus-like one with multiple heads.
+                imageName = "weshipeshu.png",
+                stats = new LevelStats() { strengthPerLevel = 7.5, defensePerLevel = 7.5, scoutingPerLevel = 10, addedPerLevel = 0, multiplierPerLevel = 0.89 },
+                activeCatchType = "A",
+                artist = "Drake Williams, remixing work by davidraju",
+                flavorText = "Unlike 3-headed hellhounds, 3-headed water panthers aren't good for guarding much of anything. They just ignore you 3 times harder. Big cats are still cats.",
+                rights = "CC BY-SA 4.0 Licensed",
+                hintText = "Active Challenge",
+                isWild = false,
+            };
+            l.Add(weshipeshu);
             //Post-processing: As a safety check, remove creatures that we know will not spawn in-game, in case we haven't moved them
             var posibleOobCreatures = l.Where(entry => (entry.areaSpawns.Count > 0 && entry.areaSpawns.All(a => a.Key != "") && entry.placeSpawns.Count == 0 && entry.specificSpawns.Count == 0)).ToList();
             foreach (var c in posibleOobCreatures)
             {
                 var areas = c.areaSpawns.Select(s => s.Key.ToPolygon()).ToList();
-                if (!areas.Any(a => CreatureCollectorGlobals.playBoundary.ElementGeometry.Intersects(a)))
+                if (!areas.Any(a => CreatureCollectorGlobals.playBoundary.Intersects(a)))
                     l.Remove(c);
             }
 
             return l;
+        }
+
+        public bool SpawnWander(string plusCode, DateTime dateTime) {
+            var dateFactor = dateTime.Ticks / TimeSpan.TicksPerDay; //A more granular baseline to allow creatures to move at different rates. Day is the minimum. Divide by range to get usable block. in the 780,000 range now for days, plenty safe.
+            var moveFactor = (dateFactor / wandersAfterDays);
+
+            //This is the best seed option. It's consistent for that value of time, and is sufficiently distinct across all inputs to avoid too much clustering.
+            var seededRNG = new Random(plusCode.GetDeterministicHashCode() + (int)moveFactor + (int)id);
+            var randomNumber = seededRNG.Next(wanderOdds);
+            var allowNow = randomNumber <= 1;
+            return allowNow;
         }
     }
 

@@ -1,29 +1,32 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Caching.Memory;
 using PraxisCore;
 using PraxisMapper.Classes;
 using static PraxisCreatureCollectorPlugin.CommonHelpers;
 using static PraxisCreatureCollectorPlugin.CreatureCollectorGlobals;
 
-namespace PraxisCreatureCollectorPlugin.Controllers
-{
-    public class CoinShopController : Controller
-    {
+namespace PraxisCreatureCollectorPlugin.Controllers {
+    public class CoinShopController : Controller {
         //This handles an in-game-currency shop. Players can buy some fragments of creatures in exchange for some coins earned while walking.
-        //Ideally this rotates daily, is generated once on demand and cached until the next reset time.
+        //this rotates daily, is generated once on demand and cached until the next reset time.
         private readonly IConfiguration Configuration;
         private static IMemoryCache cache;
 
-        public CoinShopController(IConfiguration configuration, IMemoryCache memoryCacheSingleton)
-        {
+        string accountId, password;
+        public override void OnActionExecuting(ActionExecutingContext context) {
+            base.OnActionExecuting(context);
+            PraxisAuthentication.GetAuthInfo(Response, out accountId, out password);
+        }
+
+        public CoinShopController(IConfiguration configuration, IMemoryCache memoryCacheSingleton) {
             Configuration = configuration;
             cache = memoryCacheSingleton;
         }
 
         [HttpGet]
         [Route("/[controller]/Entries")]
-        public List<ShopEntry> GetShopEntries()
-        {
+        public List<ShopEntry> GetShopEntries() {
             List<ShopEntry> results;
             if (cache.TryGetValue<List<ShopEntry>>("shopEntries", out results))
                 return results;
@@ -36,7 +39,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
 
             results = new List<ShopEntry>();
             //make new entries.
-            //Rules: 1 wild spawn, 1 elite reward, 1 special (out-of-season, unavilable, or high-tier)
+            //Rules: 1 wild spawn, 1 elite reward, 1 special (out-of-season, unavailable, or high-tier)
             var wild = creatureList.Where(c => !c.isHidden && c.isWild && c.CanSpawnNow(DateTime.UtcNow)).PickOneRandom();
             results.Add(new ShopEntry() { creatureId = wild.id, creatureCost = CommonHelpers.DetermineCoinCost(wild) });
             var elite = creatureList.Where(c => !c.isHidden && !c.isWild && !c.passportReward).PickOneRandom();
@@ -46,7 +49,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
                 results.Add(new ShopEntry() { creatureId = special.id, creatureCost = CommonHelpers.DetermineCoinCost(special) });
 
             // expires at midnight UTC
-            var expireTime = DateTime.UtcNow.AddHours(23 - DateTime.UtcNow.Hour).AddMinutes(59 - DateTime.UtcNow.Minute).AddSeconds(59 - DateTime.UtcNow.Second);
+            var expireTime = DateTime.UtcNow.ForwardToMidnight();
             cache.Set("shopEntries", results, new DateTimeOffset(expireTime));
             GenericData.SetAreaDataJson("86", "shopEntries", results, (expireTime - DateTime.UtcNow).TotalSeconds);
             return results;
@@ -54,29 +57,23 @@ namespace PraxisCreatureCollectorPlugin.Controllers
 
         [HttpGet]
         [Route("/[controller]/Buy/{creatureId}")]
-        public ShopEntry BuyFragment(int creatureId)
-        {
+        public ShopEntry BuyFragment(int creatureId) {
             //Get player info and shop info.
-            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
             var shopData = GetShopEntries();
             if (!shopData.Any(s => s.creatureId == creatureId))
                 return new ShopEntry();
 
             //if creature in shop, and player has coins, then add 1 to that creature info entry for the player and remove coins.
             var results = new ShopEntry();
-            var playerLock = GetUpdateLock(accountId);
             var cost = DetermineCoinCost(creatureList.First(c => c.id == creatureId));
-            lock (playerLock)
-            {
+            SimpleLockable.PerformWithLock(accountId, () => {
                 Account account = GenericData.GetSecurePlayerData<Account>(accountId, "account", password);
-                if (account.currencies.baseCurrency >= cost)
-                {
+                if (account.currencies.baseCurrency >= cost) {
                     account.currencies.baseCurrency -= cost;
                     var creatureData = GenericData.GetSecurePlayerData<Dictionary<long, PlayerCreatureInfo>>(accountId, "creatureInfo", password);
                     if (creatureData.ContainsKey(creatureId))
                         creatureData[creatureId].BoostCreature();
-                    else
-                    {
+                    else {
                         creatureData.Add(creatureId, new PlayerCreatureInfo() { level = 0, toNextLevel = 1 });
                         creatureData[creatureId].BoostCreature();
                     }
@@ -85,13 +82,12 @@ namespace PraxisCreatureCollectorPlugin.Controllers
                     results.creatureCost = cost;
                     results.creatureId = creatureId;
                 }
-            }
+            });
             return results;
         }
     }
 
-    public class ShopEntry
-    { 
+    public class ShopEntry {
         public long creatureId { get; set; }
         public int creatureCost { get; set; }
     }

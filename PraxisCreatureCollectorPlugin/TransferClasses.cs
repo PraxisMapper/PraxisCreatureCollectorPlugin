@@ -93,13 +93,7 @@
         };
     }
 
-    public class SimpleLockable
-    {
-        public long counter { get; set; }
-    }
-
-    public class EnterAreaResults
-    {
+    public class EnterAreaResults {
         public long coinsGranted { get; set; }
         public long creatureIdCaught { get; set; }
         public Guid creatureUidCaught { get; set; }

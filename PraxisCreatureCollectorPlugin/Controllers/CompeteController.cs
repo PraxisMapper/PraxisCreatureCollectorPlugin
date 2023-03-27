@@ -1,15 +1,15 @@
 ﻿using Google.OpenLocationCode;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Caching.Memory;
-using NetTopologySuite.Geometries;
 using PraxisCore;
 using PraxisCore.Support;
+using PraxisMapper.Classes;
 using System.Collections.Concurrent;
 using System.Text.Json;
+using static PraxisCore.DbTables;
 using static PraxisCreatureCollectorPlugin.CommonHelpers;
 using static PraxisCreatureCollectorPlugin.CreatureCollectorGlobals;
-using static PraxisCore.DbTables;
-using PraxisMapper.Classes;
 
 namespace PraxisCreatureCollectorPlugin.Controllers
 {
@@ -28,10 +28,15 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         //TC - the StyleSet for drawing the map tiles, same as Control mode.
         //competeTeamScoreX - X is 1-4, for the team in question. 0 is intentionally empty. Saved to the DB to make leaderboards faster.
 
-        static Polygon emptyPoly = new Polygon(new LinearRing(new Coordinate[] { new Coordinate(), new Coordinate(0.000000001, 0.000000001), new Coordinate() }));
-
         private readonly IConfiguration Configuration;
         private static IMemoryCache cache;
+
+        string accountId, password;
+        public override void OnActionExecuting(ActionExecutingContext context)
+        {
+            base.OnActionExecuting(context);
+            PraxisAuthentication.GetAuthInfo(Response, out accountId, out password);
+        }
 
         public CompeteController(IConfiguration configuration, IMemoryCache memoryCacheSingleton)
         {
@@ -43,11 +48,11 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         {
             GetAllEntriesFromDb();
 
-            for(int i = 1; i < 5; i++)
+            for (int i = 1; i < 5; i++)
             {
                 var tg = GetTeamGeometry(i);
-                if (tg == null)
-                    tg = new Polygon(new LinearRing(new Coordinate[] { new Coordinate(), new Coordinate(0.000000001, 0.000000001), new Coordinate() }));
+                //if (tg == null)
+                //tg = new Polygon(new LinearRing(new Coordinate[] { new Coordinate(), new Coordinate(0.000000001, 0.000000001), new Coordinate() }));
                 teamItems[i] = tg;
             }
         }
@@ -88,12 +93,9 @@ namespace PraxisCreatureCollectorPlugin.Controllers
             if (!DataCheck.IsInBounds(plusCode8))
                 return returnValue;
 
-            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
-            var playerLock = GetUpdateLock(accountId);
-            lock (playerLock)
+            SimpleLockable.PerformWithLock(accountId, () =>
             {
-                var areaLock = GetUpdateLock(plusCode8);
-                lock (areaLock)
+                SimpleLockable.PerformWithLock(plusCode8, () =>
                 {
                     var account = GenericData.GetSecurePlayerData<Account>(accountId, "account", password);
                     allEntries.TryGetValue(plusCode8, out CompeteModeEntry placedCreature);
@@ -102,7 +104,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
                         placedCreature = new CompeteModeEntry() { creatureId = creatureId, locationCell8 = plusCode8, teamId = (int)account.team };
                         allEntries.TryAdd(plusCode8, placedCreature);
                     }
-                    
+
                     if (account.team == placedCreature.teamId) //Ensure that this player is allowed to be here. Don't trust the client alone.
                     {
                         var creatureData = GenericData.GetSecurePlayerData<Dictionary<long, PlayerCreatureInfo>>(accountId, "creatureInfo", password);
@@ -111,7 +113,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
                         //Cheating checks. Player can't send up more fragments than they have, and can't send more than they have available PLUS the ones already sent to this point.
                         if (fragmentsUsed > playersCreature.totalCaught)
                             fragmentsUsed = (int)playersCreature.totalCaught;
-                       
+
 
                         var oldArea = GetGeometryFromPlacedEntry(placedCreature);
                         int availableChange = 0;
@@ -170,21 +172,19 @@ namespace PraxisCreatureCollectorPlugin.Controllers
                         UpdateGeometryEntries(placedCreature.teamId, newArea, oldArea);
 
                         //Update scores and save everything
-                        var teamScore = (long)(teamItems[placedCreature.teamId].Area / (ConstantValues.resolutionCell10 * ConstantValues.resolutionCell10));
+                        var teamScore = (long)(teamItems[placedCreature.teamId].Area / ConstantValues.squareCell10Area);
                         GenericData.SetGlobalData("competeTeamScore" + placedCreature.teamId, teamScore.ToString().ToByteArrayUTF8());
                     }
-                }
-                DropUpdateLock(plusCode8, areaLock);
-            }
-            DropUpdateLock(accountId, playerLock);
-            
+                });
+            });
+
             return returnValue;
         }
 
         public static void RecalcTeamScores()
         {
             var divisor = (ConstantValues.resolutionCell10 * ConstantValues.resolutionCell10);
-            for (int i =1; i <5; i++)
+            for (int i = 1; i < 5; i++)
             {
                 var teamScore = (long)(teamItems[i].Area / divisor);
                 GenericData.SetGlobalData("competeTeamScore" + i, teamScore.ToString().ToByteArrayUTF8());
@@ -196,7 +196,6 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         [Route("/[controller]/PlacedOverlay/{plusCode}")]
         public ActionResult DrawPlacedCreatureMapOverlayTile(string plusCode)
         {
-            //NOTE: this is extremely slow on current server for some reason. These take 6 seconds to draw on prod server.
             Response.Headers.Add("X-noPerfTrack", "Compete/PlacedOverlay/VARSREMOVED");
             if (!DataCheck.IsInBounds(plusCode))
             {
@@ -206,6 +205,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
 
             //check for existing tile!
             var db = new PraxisContext();
+            db.ChangeTracker.AutoDetectChangesEnabled = false;
             var existingResults = db.MapTiles.FirstOrDefault(mt => mt.PlusCode == plusCode && mt.StyleSet == "Compete");
             if (existingResults != null && existingResults.ExpireOn > DateTime.UtcNow)
             {
@@ -218,15 +218,59 @@ namespace PraxisCreatureCollectorPlugin.Controllers
 
             List<DbTables.Place> mapItems = new List<DbTables.Place>();
             for (int i = 1; i < 5; i++)
-                mapItems.Add(new DbTables.Place() { ElementGeometry = teamItems[i], Tags = new List<PlaceTags>(){ new PlaceTags() { Key = "teamOwner", Value = i.ToString() } } });
+            {
+                if (teamItems[i] != null)
+                    mapItems.Add(new DbTables.Place() { ElementGeometry = teamItems[i], Tags = new List<PlaceTags>() { new PlaceTags() { Key = "teamOwner", Value = i.ToString() } } });
+            }
+            TagParser.ApplyTags(mapItems, "Compete");
 
-            //Draw map tile, save it to the server since this is multiplayer. Control can get away with piggybacking off the built-in logic since it uses DB geometry.
             ImageStats stats = new ImageStats(plusCode);
-            var paintOps = MapTileSupport.GetPaintOpsForPlacesParseTags(mapItems, "Compete", stats); 
+            var paintOps = MapTileSupport.GetPaintOpsForPlaces(mapItems, "Compete", stats);
             var mapTile = MapTileSupport.MapTiles.DrawAreaAtSize(stats, paintOps);
 
             var gen = MapTileSupport.SaveMapTile(plusCode, "Compete", mapTile);
             cache.Set("gen" + plusCode + "Compete", gen);
+
+            return File(mapTile, "image/png");
+        }
+
+        [HttpGet]
+        [Route("/MapTile/CompeteOverlaySlippy/{zoom}/{x}/{y}.png")]
+        [Route("/[controller]/PlacedOverlaySlippy/{zoom}/{x}/{y}.png")]
+        public ActionResult DrawPlacedCreatureMapOverlayTileSlippy(int zoom, int x, int y)
+        {
+            string tileKey = x.ToString() + "|" + y.ToString() + "|" + zoom.ToString();
+            var info = new ImageStats(zoom, x, y, MapTileSupport.SlippyTileSizeSquare);
+            info = MapTileSupport.ScaleBoundsCheck(info, Configuration["imageMaxSide"].ToInt(), Configuration["maxImagePixels"].ToLong());
+
+            Response.Headers.Add("X-noPerfTrack", "Compete/PlacedOverlaySlippy/VARSREMOVED");
+            if (!DataCheck.IsInBounds(info.area))
+            {
+                Response.Headers.Add("X-notes", "OOB");
+                return StatusCode(500);
+            }
+            byte[] tileData = MapTileSupport.GetExistingSlippyTile(tileKey, "Compete");
+            if (tileData != null)
+            {
+                Response.Headers.Add("X-notes", "cached");
+                return File(tileData, "image/png");
+            }
+
+            //this one is for gameplay tiles, to see where your existing creatures sit.
+            List<DbTables.Place> mapItems = new List<DbTables.Place>();
+            for (int i = 1; i < 5; i++)
+            {
+                if (teamItems[i] != null)
+                    mapItems.Add(new DbTables.Place() { ElementGeometry = teamItems[i], Tags = new List<PlaceTags>() { new PlaceTags() { Key = "teamOwner", Value = i.ToString() } } });
+            }
+            TagParser.ApplyTags(mapItems, "Compete");
+
+            var paintOps = MapTileSupport.GetPaintOpsForPlaces(mapItems, "Compete", info);
+            var mapTile = MapTileSupport.MapTiles.DrawAreaAtSize(info, paintOps);
+            MapTileSupport.SaveSlippyMapTile(info, tileKey, "Compete", mapTile);
+                        
+            //var gen = MapTileSupport.SaveMapTile(plusCode, "Compete", mapTile);
+            //cache.Set("gen" + plusCode + "Compete", gen);
 
             return File(mapTile, "image/png");
         }
@@ -240,21 +284,21 @@ namespace PraxisCreatureCollectorPlugin.Controllers
             if (cache.TryGetValue("CompeteFullMap", out byte[] mapImage))
                 return File(mapImage, "image/png");
 
-            List<DbTables.Place> mapItems = new List<DbTables.Place>();
+            List<DbTables.Place> mapItems = new List<DbTables.Place>(5);
             for (int i = 1; i < 5; i++)
-            { 
+            {
                 if (teamItems[i] != null)
                     mapItems.Add(new DbTables.Place() { ElementGeometry = teamItems[i], Tags = new List<PlaceTags>() { new PlaceTags() { Key = "teamOwner", Value = i.ToString() } } });
             }
-            mapItems.Add(CreatureCollectorGlobals.playBoundary);
+            mapItems.Add(new DbTables.Place() { ElementGeometry = CreatureCollectorGlobals.playBoundary, StyleName = "borders" });
 
-            var env = playBoundary.ElementGeometry.EnvelopeInternal;
+            var env = playBoundary.EnvelopeInternal;
             //Note: Could call PadGeoArea here, but this is slightly faster since there's no existing GeoArea.
             GeoArea state = new GeoArea(env.MinY - ConstantValues.resolutionCell6, env.MinX - ConstantValues.resolutionCell6, env.MaxY + ConstantValues.resolutionCell6, env.MaxX + ConstantValues.resolutionCell6);
 
             //Draw map tile, save it to the server since this is multiplayer. Control can get away with piggybacking off the built-in logic since it uses DB geometry.
-            ImageStats stats = new ImageStats(state, 1024, 1024);
-            var paintOps = MapTileSupport.GetPaintOpsForPlacesParseTags(mapItems, "Compete", stats);
+            ImageStats stats = new ImageStats(state, 1024, 1024); //TODO: determine the actual ratio for this image.
+            var paintOps = MapTileSupport.GetPaintOpsForPlaces(mapItems, "Compete", stats);
             var mapTile = MapTileSupport.MapTiles.DrawAreaAtSize(stats, paintOps);
 
             cache.Set("CompeteFullMap", mapTile, AbsoluteExpiration15Min);
@@ -264,12 +308,10 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         public static void GetAllEntriesFromDb()
         {
             //Load up all saved entries from the DB.
-            //NOTE: GetAllDataInArea breaks with a non-emptystring key, so I have to pull this data directly here.
             var db = new PraxisContext();
             //HOWEVER, since it's by Cell8 and by team, I ONLY need to save/load the radius of the geometry for each of these points.
             //which is good, because there are up to 64 million Cell8s in Ohio. (20 Cell4 = 8,000 Cell6 = 64M Cell8) * 4 teams = 256M * 4 bytes = 1 GB of RAM max.
-            //I don't have a GenericData call to do this for Places or Areas.
-            var dbAllEntries = db.AreaGameData.Where(p => p.DataKey == "competeEntry").Select(d => new {d.PlusCode, data = GenericData.DecryptValue(d.IvData, d.DataValue, internalPassword)}).ToList();
+            var dbAllEntries = db.AreaData.Where(p => p.DataKey == "competeEntry").Select(d => new { d.PlusCode, data = GenericData.DecryptValue(d.IvData, d.DataValue, internalPassword) }).ToList();
             allEntries = new ConcurrentDictionary<string, CompeteModeEntry>(dbAllEntries.ToDictionary(k => k.PlusCode, v => v.data.FromJsonBytesTo<CompeteModeEntry>()));
         }
 
@@ -278,18 +320,15 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         public bool Attack(string plusCode8, long creatureId)
         {
             //1 player sends up all their available fragments of a creature. If that has more Offense than the placed creature has Defense, it gets defeated.
-            //send all fragments back to the players that contributed, remove the geometry attached, redraw all covered map tiles.
-            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
+            //send all fragments back to the defending players that contributed, remove the geometry attached, redraw all covered map tiles.
 
             //get player's creatures, use all available fragments for creature.
             var creatureData = GenericData.GetSecurePlayerData<Dictionary<long, PlayerCreatureInfo>>(accountId, "creatureInfo", password);
             var thisCreature = creatureData[creatureId];
-
-            var placedEntry = GetPlacedCreature(plusCode8);
-            
             var attackerCi = new PlayerCreatureInfo() { id = thisCreature.id };
             attackerCi.FastBoost(thisCreature.currentAvailableCompete);
 
+            var placedEntry = GetPlacedCreature(plusCode8);
             var defenderCi = new PlayerCreatureInfo() { id = thisCreature.id };
             defenderCi.FastBoost(placedEntry.totalFragments);
 
@@ -298,7 +337,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
                 //Expire tiles on the geometry before redrawing it.
                 allEntries.TryRemove(plusCode8, out var ignore);
                 GenericData.SetSecureAreaData(plusCode8, "competeEntry", "", internalPassword, -1);
-                UpdateGeometryEntries(placedEntry.teamId, new Polygon(new LinearRing(new Coordinate[] { new Coordinate(), new Coordinate(0.000000001, 0.000000001), new Coordinate() })), GetGeometryFromPlacedEntry(placedEntry));
+                UpdateGeometryEntries(placedEntry.teamId, Singletons.geometryFactory.CreatePolygon(), GetGeometryFromPlacedEntry(placedEntry));
 
                 foreach (var player in placedEntry.creatureFragmentCounts)
                 {

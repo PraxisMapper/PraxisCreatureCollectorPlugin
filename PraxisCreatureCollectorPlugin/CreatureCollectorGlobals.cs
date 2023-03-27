@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Caching.Memory;
 using NetTopologySuite.Geometries;
+using NetTopologySuite.Geometries.Prepared;
 using PraxisCore;
 using System.Collections.Concurrent;
 
@@ -18,7 +19,7 @@ namespace PraxisCreatureCollectorPlugin
         public static ConcurrentDictionary<string, DateTime> spawnLocks = new ConcurrentDictionary<string, DateTime>();
         public static string internalPassword = ""; //Leave empty in code, is filled in from main appsettings.json
         public static string ActiveChallengeOptions = "ABCDE";
-        public static ConcurrentDictionary<string, SimpleLockable> updateLocks = new ConcurrentDictionary<string, SimpleLockable>();
+
         public static List<string> gameplayAreas = new List<string>();
         public static ReaderWriterLockSlim startupLock = new ReaderWriterLockSlim();
         public static List<Creature> passportRewards = new List<Creature>();
@@ -32,7 +33,6 @@ namespace PraxisCreatureCollectorPlugin
 
         //optimizations for finding values.
         public static Dictionary<long, Creature> creaturesById;
-        public static Dictionary<string, Creature> creaturesByName;
         public static List<Creature> additionalSpawns;
         public static List<Creature> wanderingCreatures;
 
@@ -41,8 +41,11 @@ namespace PraxisCreatureCollectorPlugin
         public static ConcurrentDictionary<string, CompeteModeEntry> allEntries = new ConcurrentDictionary<string, CompeteModeEntry>(); //Used for lookups. Is concurrent now.
 
         public static long graduateGrantsCount = 10000;
-        public static long graduateCreatureCount = 20; //update to ~50% of creature list.
-        public static DbTables.Place playBoundary; //Region/county/state/whatever where the game takes place.
+        public static long graduateCreatureCount = 35; //update to ~50% of creature list.
+        
+        //Region/county/state/whatever where the game takes place. Defaults to global in case values aren't set correctly.
+        public static Geometry playBoundary = Singletons.geometryFactory.CreatePolygon(new Coordinate[] { new Coordinate(-180, -90), new Coordinate(-180, 90), new Coordinate(180, 90), new Coordinate(180, -90), new Coordinate(-180, -90) });
+
 
         
     }

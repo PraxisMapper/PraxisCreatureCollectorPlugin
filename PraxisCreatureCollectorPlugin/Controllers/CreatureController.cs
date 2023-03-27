@@ -1,13 +1,14 @@
 ﻿using Google.OpenLocationCode;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Caching.Memory;
 using PraxisCore;
 using PraxisCore.Support;
+using PraxisMapper.Classes;
 using System.Text;
 using static PraxisCreatureCollectorPlugin.CommonHelpers;
 using static PraxisCreatureCollectorPlugin.CreatureCollectorGlobals;
 using static PraxisCore.DbTables;
-using PraxisMapper.Classes;
 
 namespace PraxisCreatureCollectorPlugin.Controllers
 {
@@ -18,17 +19,12 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         private readonly IConfiguration Configuration;
         private static IMemoryCache cache;
 
-        //Data notes:
-        //Players have:
-        //account - core account data, encrypted
-        //team - separate to allow for server stat collection and high scores, plaintext.
-        //creatureInfo - their creatures and the stats on each of them.
-        //tutorialInfo - which tutorial scenes the player has seen.
-
-        //areas have:
-        //teamOwning - which color team control this area. plaintext
-        //rank - how many tiers of a pyramid this area has for pvp purposes. plaintext
-        //players - which players are currently here. encrypted with system password.
+        string accountId, password;
+        public override void OnActionExecuting(ActionExecutingContext context)
+        {
+            base.OnActionExecuting(context);
+            PraxisAuthentication.GetAuthInfo(Response, out accountId, out password);
+        }
 
         public CreatureController(IConfiguration configuration, IMemoryCache memoryCacheSingleton)
         {
@@ -44,127 +40,113 @@ namespace PraxisCreatureCollectorPlugin.Controllers
             return results;
         }
 
-        public void Spawn(string plusCode)
+        public void Spawn(string plusCode, List<AreaData> existingCreatures)
         {
-            if (!DataCheck.IsInBounds(plusCode))
-                return;
-
-            GeoArea box = OpenLocationCode.DecodeValid(plusCode);
-            var alldata = GenericData.GetAllDataInArea(box);
-            var data = alldata.Where(d => d.key == "creature").ToList();
-
-            var spawnLock = GetUpdateLock(plusCode);
-            if (spawnLock.counter > 1) //Someone else is working on it, we don't need to wait
-            {
-                DropUpdateLock(plusCode, spawnLock);
-                return;
-            }
-            lock (spawnLock)
-            {
-                //Generate spawn table
-                List<Creature> localSpawnTable = GenerateSpawnTable(plusCode, out var terrainInfo);                
-                RunSpawnProcess(data, "creature", localSpawnTable, terrainInfo);
-            }
-            DropUpdateLock(plusCode, spawnLock);
+            List<Creature> localSpawnTable = GenerateSpawnTable(plusCode, out var terrainInfo);
+            RunSpawnProcess(existingCreatures, localSpawnTable, terrainInfo);
             return;
         }
 
         public static CreatureInstance MakeRandomCreatureInstance(List<Creature> spawnTable)
         {
             CreatureInstance c = new CreatureInstance();
-            var creatureSpawned = spawnTable[Random.Shared.Next(spawnTable.Count)];
+            var creatureSpawned = spawnTable.PickOneRandom();
             c.name = creatureSpawned.name;
             c.uid = Guid.NewGuid();
             c.id = creatureSpawned.id;
-            c.activeGame = ActiveChallengeOptions[Random.Shared.Next(ActiveChallengeOptions.Length)].ToString(); //FUTURE TODO: pull from selected creature instead of global, once creatures can set their own challenge list.
+            c.activeGame = ActiveChallengeOptions.PickOneRandom().ToString(); //FUTURE TODO: pull from selected creature instead of global, once creatures can set their own challenge list.
             c.difficulty = creatureSpawned.activeCatchDifficulty;
             return c;
         }
 
-        public static AreaGameData MakeCreatureSpawn(string dataKey, FindPlaceResult spawnArea, List<Creature> spawnTable)
+        public static AreaData MakeCreatureSpawn(AreaDetail spawnArea, List<Creature> spawnTable)
         {
-            var entry = new AreaGameData();
-            entry.DataKey = dataKey;
+            var entry = new AreaData();
+            entry.DataKey = "creature";
             entry.PlusCode = spawnArea.plusCode;
-            entry.GeoAreaIndex = Converters.GeoAreaToPolygon(OpenLocationCode.DecodeValid(entry.PlusCode));
+            entry.AreaCovered = entry.PlusCode.ToPolygon();
             entry.Expiration = DateTime.UtcNow.AddSeconds((double)Random.Shared.Next(config.CreatureDurationMin, config.CreatureDurationMax));
             var creature = MakeRandomCreatureInstance(spawnTable);
             entry.DataValue = creature.ToJsonByteArray();
             return entry;
         }
 
-        public static void RunSpawnProcess(List<CustomDataAreaResult> data, string dataKey, List<Creature> spawnTable, List<FindPlaceResult> terrainInfo)
+        public static void RunSpawnProcess(List<AreaData> existingCreatures, List<Creature> spawnTable, List<AreaDetail> terrainInfo)
         {
-            var occupied = data.Where(d => d.key == dataKey).ToLookup(k => k.plusCode); //We will never pull a creature into a cell that has a spawn on any of the lists.
-            terrainInfo = terrainInfo.Where(t => !occupied.Contains(t.plusCode)).ToList();
-            var walkable = terrainInfo.Where(t => walkableAreas.Contains(t.data.areaType)).ToList();
-            var other = terrainInfo.Where(t => !walkableAreas.Contains(t.data.areaType)).ToList();
+            var occupied = existingCreatures.ToLookup(k => k.PlusCode); //We will never pull a creature into a cell that has a spawn on any of the lists.
 
-            var minWalkable = walkable.OrderBy(o => Random.Shared.Next()).Take((int)config.MinWalkableSpacesOnSpawn).ToList();
-            var minOther = other.OrderBy(o => Random.Shared.Next()).Take((int)config.MinOtherSpacesOnSpawn).ToList();
-            var rest = terrainInfo
-                .OrderBy(o => Random.Shared.Next())
-                .Where(r => !minWalkable.Any(w => w.plusCode == r.plusCode) && !minOther.Any(o => o.plusCode == r.plusCode))
-                .Take((int)config.CreaturesPerCell8 - minWalkable.Count - minOther.Count)
+            int totalCount = (int)config.CreaturesPerCell8;
+            int walkableCount = (int)config.MinWalkableSpacesOnSpawn;
+            int otherCount = (int)config.MinOtherSpacesOnSpawn;
+
+            //Iterate terrainInfo once, randomize order once. Should be more efficient.
+            List<AreaDetail> unoccupied = new List<AreaDetail>(400);
+            List<AreaDetail> walkable = new List<AreaDetail>(walkableCount);
+            List<AreaDetail> other = new List<AreaDetail>(otherCount);
+
+            foreach (var t in terrainInfo.OrderBy(o => Random.Shared.Next()))
+            {
+                bool putOnSubList = false;
+                if (occupied.Contains(t.plusCode))
+                    continue;
+
+                if (walkableAreas.Contains(t.data.style))
+                {
+                    if (walkable.Count() < walkableCount)
+                    {
+                        walkable.Add(t);
+                        putOnSubList = true;
+                    }
+                }
+                else if (other.Count() < otherCount)
+                {
+                    other.Add(t);
+                    putOnSubList = true;
+                }
+
+                if (!putOnSubList)
+                    unoccupied.Add(t);
+
+                if (walkableAreas.Count() >= walkableCount && other.Count() >= otherCount && (unoccupied.Count() >= (totalCount - walkableAreas.Count() - other.Count())))
+                    break; //we have enough entries to do this task, jump out early.
+            }
+
+            var rest = unoccupied
+                .Take(totalCount - walkable.Count - other.Count)
                 .ToList();
-            rest = rest.ToList(); //Dodge duplicate entries, ensure we still have our minimum values.
 
-            List<AreaGameData> results = new List<AreaGameData>((int)config.CreaturesPerCell8);
+            List<AreaData> results = new List<AreaData>(totalCount);
             var db = new PraxisContext();
+            db.ChangeTracker.AutoDetectChangesEnabled = false;
 
-            for (int i = 0; i < minWalkable.Count(); i++)
-            {
-                results.Add(MakeCreatureSpawn(dataKey, minWalkable[i], spawnTable));
-            }
+            for (int i = 0; i < walkable.Count(); i++)
+                results.Add(MakeCreatureSpawn(walkable[i], spawnTable));
 
-            for (int i = 0; i < minOther.Count(); i++)
-            {
-                results.Add(MakeCreatureSpawn(dataKey, minOther[i], spawnTable));
-            }
+            for (int i = 0; i < other.Count(); i++)
+                results.Add(MakeCreatureSpawn(other[i], spawnTable));
 
             for (int i = 0; i < rest.Count(); i++)
-            {
-                results.Add(MakeCreatureSpawn(dataKey, rest[i], spawnTable));
-            }
+                results.Add(MakeCreatureSpawn(rest[i], spawnTable));
 
             foreach (var p in spawnTable.Where(s => s.isPermanent).Distinct())
             {
-                //NOTE: may need to remove/replace existing entries.
-                var entry = new AreaGameData();
-                entry.DataKey = dataKey;
-                entry.PlusCode = p.specificSpawns[Random.Shared.Next(p.specificSpawns.Count)];
-                entry.GeoAreaIndex = Converters.GeoAreaToPolygon(OpenLocationCode.DecodeValid(entry.PlusCode));
+                //Should use MakeCreatureSpawn here.
+                string pluscode = p.specificSpawns.PickOneRandom();
+                AreaData removeEntry = existingCreatures.FirstOrDefault(d => d.PlusCode == pluscode);
+                if (removeEntry != null)
+                    db.AreaData.Remove(removeEntry);
+
+                var entry = new AreaData();
+                entry.DataKey = "creature";
+                entry.PlusCode = pluscode;
+                entry.AreaCovered = entry.PlusCode.ToPolygon();
                 entry.Expiration = DateTime.UtcNow.AddSeconds(config.CreatureDurationMax);
-                CreatureInstance ci = new CreatureInstance() { activeGame = ActiveChallengeOptions[Random.Shared.Next(ActiveChallengeOptions.Length)].ToString(), difficulty = p.activeCatchDifficulty, id = p.id, name = p.name, uid = Guid.NewGuid() };
+                CreatureInstance ci = new CreatureInstance() { activeGame = ActiveChallengeOptions.PickOneRandom().ToString(), difficulty = p.activeCatchDifficulty, id = p.id, name = p.name, uid = Guid.NewGuid() };
                 entry.DataValue = ci.ToJsonByteArray();
                 results.Add(entry);
             }
 
-            db.AreaGameData.AddRange(results);
-            db.SaveChanges();
-        }
-
-        public static void SetAreaDataFast(string plusCode, string key, byte[] value, double? expiration = null)
-        {
-            //I save this all above in RunSpawnProcessList with an AddRange call.
-            //Since this controller is running server-side, I KNOW I am not attaching player data to a location, 
-            //and will skip the checks for such.
-            var db = new PraxisContext();
-            var row = db.AreaGameData.FirstOrDefault(p => p.PlusCode == plusCode && p.DataKey == key);
-            if (row == null)
-            {
-                row = new DbTables.AreaGameData();
-                row.DataKey = key;
-                row.PlusCode = plusCode;
-                row.GeoAreaIndex = Converters.GeoAreaToPolygon(OpenLocationCode.DecodeValid(plusCode));
-                db.AreaGameData.Add(row);
-            }
-            if (expiration.HasValue)
-                row.Expiration = DateTime.UtcNow.AddSeconds(expiration.Value);
-            else
-                row.Expiration = null;
-            row.IvData = null;
-            row.DataValue = value;
+            db.AreaData.AddRange(results);
             db.SaveChanges();
         }
 
@@ -214,7 +196,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
 
                 results.Append(catchesTo50 + "\t");
                 results.Append(idleTimeTo30 + "\t");
-                results.Append(CommonHelpers.DetermineCoinCost(c) + "\t");
+                results.Append(DetermineCoinCost(c) + "\t");
                 results.AppendLine();
             }
 
@@ -226,9 +208,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         public void BoostChallengeCreature(long baseCreatureId)
         {
             Response.Headers.Add("X-noPerfTrack", "Creature/ChallengeDone/VARSREMOVED");
-            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
-            var playerLock = GetUpdateLock(accountId);
-            lock (playerLock)
+            SimpleLockable.PerformWithLock(accountId, () =>
             {
                 var eliteCreature = creaturesById[baseCreatureId].eliteId;
                 var creatureData = GenericData.GetSecurePlayerData<Dictionary<long, PlayerCreatureInfo>>(accountId, "creatureInfo", password);
@@ -241,8 +221,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
                 }
                 creature.BoostCreature();
                 GenericData.SetSecurePlayerDataJson(accountId, "creatureInfo", creatureData, password);
-            }
-            DropUpdateLock(accountId, playerLock);
+            });
         }
 
         [HttpPut]
@@ -253,50 +232,51 @@ namespace PraxisCreatureCollectorPlugin.Controllers
             Response.Headers.Add("X-noPerfTrack", "Creature/Enter/VARSREMOVED");
             if (!DataCheck.IsInBounds(plusCode))
                 return null;
-            PraxisAuthentication.
-            GetAuthInfo(Response, out var accountId, out var password);
 
             var results = new EnterAreaResults();
-            var playerLock = GetUpdateLock(accountId);
-            lock (playerLock)
+            SimpleLockable.PerformWithLock(accountId, () =>
             {
                 Account account = GenericData.GetSecurePlayerData<Account>(accountId, "account", password);
                 var grantBlocks = GenericData.GetSecurePlayerData<Dictionary<string, DateTime>>(accountId, "grantBlocks", password);
                 if (grantBlocks == null)
                     grantBlocks = new Dictionary<string, DateTime>();
 
-                var checkTimer = grantBlocks.TryGetValue(plusCode, out var allowGrant);
-                if (!checkTimer || allowGrant < DateTime.UtcNow) //We only clear old values on allow, so we do need to check if this timer expired.
+                var grantLock = GenericData.GetPlayerData(accountId, "GrantLock"); //The player can only get coins every 2 seconds
+                if (grantLock.ToUTF8String() != config.CoinGrantLockoutSeconds.ToString())
                 {
-                    int coinsGranted = 0;
-                    coinsGranted = Random.Shared.Next(3, 7);
-                    if (checkTimer == false)
-                        grantBlocks.Add(plusCode, DateTime.UtcNow.AddHours(22));
-                    else
-                        allowGrant = DateTime.UtcNow.AddHours(22);
-                    grantBlocks = grantBlocks.Where(g => g.Value > DateTime.UtcNow).ToDictionary(k => k.Key, v => v.Value);
-
-                    account.currencies.baseCurrency += coinsGranted;
-                    account.totalGrants++;
-
-                    //Ideal Additional check: have caught at least 50% of creatures on list. (player's creature list count is half of total creature list count). Doable with active challenges and store fairly easily.
-                    //TODO: juggle around loading/saving values to be able to check creatures and total grants at the same time.
-                    if (!account.graduationEligible && account.totalGrants > graduateGrantsCount) //Are there additional critera to add here in the future?
+                    var checkTimer = grantBlocks.TryGetValue(plusCode, out var allowGrant);
+                    if (!checkTimer || allowGrant < DateTime.UtcNow) //We only clear old values on allow, so we do need to check if this timer expired.
                     {
-                        account.graduationEligible = true;
-                    }
-                    results.coinsGranted = coinsGranted;
+                        int coinsGranted = 0;
+                        coinsGranted = Random.Shared.Next(3, 7);
+                        if (checkTimer == false)
+                            grantBlocks.Add(plusCode, DateTime.UtcNow.AddHours(22));
+                        else
+                            allowGrant = DateTime.UtcNow.AddHours(22);
+                        grantBlocks = grantBlocks.Where(g => g.Value > DateTime.UtcNow).ToDictionary(k => k.Key, v => v.Value);
 
-                    GenericData.SetSecurePlayerDataJson(accountId, "grantBlocks", grantBlocks, password);
-                    GenericData.SetSecurePlayerDataJson(accountId, "account", account, password);
+                        account.currencies.baseCurrency += coinsGranted;
+                        account.totalGrants++;
+
+                        //Ideal Additional check: have caught at least 50% of creatures on list. (player's creature list count is half of total creature list count). Doable with active challenges and store fairly easily.
+                        //TODO: juggle around loading/saving values to be able to check creatures and total grants at the same time.
+                        if (!account.graduationEligible && account.totalGrants > graduateGrantsCount) //Are there additional critera to add here in the future?
+                        {
+                            account.graduationEligible = true;
+                        }
+                        results.coinsGranted = coinsGranted;
+
+                        GenericData.SetSecurePlayerDataJson(accountId, "grantBlocks", grantBlocks, password);
+                        GenericData.SetSecurePlayerDataJson(accountId, "account", account, password);
+                        GenericData.SetPlayerData(accountId, "GrantLock", config.CoinGrantLockoutSeconds.ToString().ToByteArrayUTF8(), config.CoinGrantLockoutSeconds);
+                    }
                 }
 
                 //Player catches everything in their Cell10 and the neighboring cell10s
                 GeoArea playerCell = OpenLocationCode.DecodeValid(plusCode);
                 GeoArea radius = new GeoArea(playerCell.SouthLatitude - ConstantValues.resolutionCell10 - .000001, playerCell.WestLongitude - ConstantValues.resolutionCell10 - .000001, playerCell.NorthLatitude + ConstantValues.resolutionCell10 + .000001, playerCell.EastLongitude + ConstantValues.resolutionCell10 + .000001);
                 var allCreatures = GenericData.GetAllDataInArea(radius);
-
-                allCreatures = allCreatures.Where(c => c.key == "creature").ToList();
+                allCreatures = allCreatures.Where(c => c.DataKey == "creature").ToList();
 
                 List<Guid> recentlyCaught = new List<Guid>();
                 Dictionary<long, PlayerCreatureInfo> creatureData = new Dictionary<long, PlayerCreatureInfo>();
@@ -313,7 +293,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
                 bool save = false;
                 foreach (var c in allCreatures)
                 {
-                    var creatureInstance = c.value.FromJsonTo<CreatureInstance>();
+                    var creatureInstance = c.DataValue.FromJsonBytesTo<CreatureInstance>();
                     if (recentlyCaught.Count() > 499)
                         recentlyCaught.RemoveAt(0);
                     if (!recentlyCaught.Contains(creatureInstance.uid))
@@ -331,7 +311,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
                         creature.BoostCreature();
                         results.creatureIdCaught = creatureInstance.id;
                         results.creatureUidCaught = creatureInstance.uid;
-                        results.plusCode = c.plusCode.Substring(0, 8);
+                        results.plusCode = c.PlusCode.Substring(0, 8);
                         results.activeGame = creatureInstance.activeGame;
                         results.difficulty = creatureList.First(c => c.id == creatureInstance.id).activeCatchDifficulty;
                         save = true;
@@ -343,11 +323,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
                     GenericData.SetSecurePlayerDataJson(accountId, "creatureInfo", creatureData, password);
                     GenericData.SetSecurePlayerDataJson(accountId, "recentlyCaught", recentlyCaught, password);
                 }
-
-                GenericData.SetPlayerData(accountId, "GrantLock", "2".ToByteArrayUTF8(), 2); //Only grant coins every 2 seconds, should allow bikers to get full credit and drivers half credit.
-            }
-            cache.Set("processLock-" + accountId, true, TimeSpan.FromSeconds(2));
-            DropUpdateLock(accountId, playerLock);
+            });
             return results;
         }
 
@@ -358,7 +334,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
             if (!DataCheck.IsInBounds(plusCode))
                 return null;
 
-            List<FindPlaceResult>? terrainInfo = new List<FindPlaceResult>();
+            List<AreaDetail>? terrainInfo = new List<AreaDetail>();
             List<Creature> localSpawnTable = GenerateSpawnTable(plusCode, out terrainInfo);
 
             var totalEntries = localSpawnTable.Count;
@@ -371,9 +347,11 @@ namespace PraxisCreatureCollectorPlugin.Controllers
             return results;
         }
 
+        public record WildResult(string plusCode, string value);
+
         [HttpGet]
         [Route("/[controller]/Wild/{plusCode8}/")]
-        public List<CustomDataAreaResult> GetWildCreatures(string plusCode8)
+        public List<WildResult> GetWildCreatures(string plusCode8)
         {
             //This is per-client results because we filter out ones they've already caught. We can cache the base list but we need to process it anyways each call.
             if (!DataCheck.IsInBounds(plusCode8))
@@ -381,40 +359,47 @@ namespace PraxisCreatureCollectorPlugin.Controllers
                 Response.Headers.Add("X-noPerfTrack", "Creature/Wild/VARSREMOVED"); //Set here because its normally set later in this function and these values must be blocked.
                 return null;
             }
-            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
-            List<CustomDataAreaResult> results;
+            List<AreaData> results = new List<AreaData>();
 
-            var dataKey = "creature";
-            var account = GenericData.GetSecurePlayerData<Account>(accountId, "account", password);
-
-            results = GenericData.GetAllDataInArea(plusCode8); //MariaDB won't run AllData with a subkey.
-            results = results.Where(r => r.key == dataKey).ToList();
-
-            if (results.Count <= config.CreatureCountToRespawn)
+            bool callAgain = false;
+            SimpleLockable.PerformWithLock("spawnLock" + plusCode8, () =>
             {
-                Spawn(plusCode8);
+                results = GenericData.GetAllDataInArea(plusCode8);
+                results = results.Where(r => r.DataKey == "creature").ToList();
+
+                if (results.Count <= config.CreatureCountToRespawn)
+                {
+                    Spawn(plusCode8, results);
+                    callAgain = true;
+                }
+            });
+            if (callAgain)
                 return GetWildCreatures(plusCode8);
-            }
 
             var recentlyCaught = GenericData.GetSecurePlayerData<List<Guid>>(accountId, "recentlyCaught", password);
             if (recentlyCaught == null)
                 recentlyCaught = new List<Guid>();
 
-            var toRemove = new List<int>();
-            for (int i = results.Count - 1; i >= 0; i--) //Backwards since these indexes change if we remove them in ascending order.
-            {
-                var instance = results[i].value.FromJsonTo<CreatureInstance>();
-                if (recentlyCaught.Contains(instance.uid))
-                {
-                    toRemove.Add(i);
-                }
-            }
+            //Proposed new way. One list iteration and creation.
+            results = results.Where(r => !recentlyCaught.Contains(r.DataValue.FromJsonBytesTo<CreatureInstance>().uid)).ToList();
 
-            foreach (var removed in toRemove)
-                results.RemoveAt(removed);
+            //Original way. Iterates results twice, may redo array each time a removal occurs.
+            //var toRemove = new List<int>();
+            //for (int i = results.Count - 1; i >= 0; i--) //Backwards since these indexes change if we remove them in ascending order.
+            //{
+            //    var instance = results[i].value.FromJsonTo<CreatureInstance>();
+            //    if (recentlyCaught.Contains(instance.uid)) {
+            //        toRemove.Add(i);
+            //    }
+            //}
+
+            //results = results.Where(r => !recentlyCaught.Contains(r.value.FromJsonTo<CreatureInstance>().uid)).ToList();
+            //foreach (var removed in toRemove)
+            //    results.RemoveAt(removed);
+            //end original way.
 
             Response.Headers.Add("X-noPerfTrack", "Creature/Wild/VARSREMOVED"); //Set here because it fails on the recursive call when spawning creatures if you add a header twice.
-            return results;
+            return results.Select(r => new WildResult(r.PlusCode, r.DataValue.ToUTF8String())).ToList();
         }
 
         [HttpGet]
@@ -442,17 +427,15 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         public Dictionary<long, PlayerCreatureInfo> getPlayerCreatureInfo()
         {
             Response.Headers.Add("X-noPerfTrack", "Creature/CreatureInfo/VARSREMOVED");
-            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
             var results = GenericData.GetSecurePlayerData<Dictionary<long, PlayerCreatureInfo>>(accountId, "creatureInfo", password);
             return results;
         }
 
-        //Maybe this is a Tibo endpoint.It probably should be. TODO move this, TODO make this only area.
+        //Maybe this is a Tibo endpoint.It probably should be. TODO move this, TODO make this only area on the client side.
         [HttpPut]
         [Route("/[controller]/Graduate/{creatureChosenId}/{area}")]
         public bool Graduate(long creatureChosenId, string area)
         {
-            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
             //when a player graduates, update spawn data to make the creature they chose have 1 more entry in the spawn table for the selected area.
             ////Place and Type were considered, but I've chosen not to allow those for now.
             var creature = creaturesById[creatureChosenId];
@@ -462,26 +445,29 @@ namespace PraxisCreatureCollectorPlugin.Controllers
             {
                 //update creature spawn for selected plus code.
                 if (!creature.areaSpawns.TryGetValue(area, out count))
+
                     creature.areaSpawns.Add(area, 1);
                 else
                     creature.areaSpawns[area] = count + 1;
+
+                if (areaSpawnTables.ContainsKey(area))
+                    areaSpawnTables[area].Add(creature);
+                else
+                    areaSpawnTables.Add(area, new List<Creature>() { creature });
             }
 
             //update database tags.
-            var dbLock = GetUpdateLock("spawnList");
-            lock (dbLock)
+            SimpleLockable.PerformWithLock("spawnLock" + area, () =>
             {
                 GenericData.SetGlobalDataJson("creatureData", creatureList);
                 var version = GenericData.GetGlobalData("creatureDataVersion").ToUTF8String();
                 var intVersion = version.ToInt();
                 intVersion++;
                 GenericData.SetGlobalData("creatureDataVersion", intVersion.ToString().ToByteArrayUTF8());
-            }
-            DropUpdateLock("spawnList", dbLock);
+            });
 
             //Now reset the player's account info, except tutorials. This could be a delete/recreate call, but I want to keep their password in tact.
-            var playerLock = GetUpdateLock(accountId);
-            lock (playerLock)
+            SimpleLockable.PerformWithLock(accountId, () =>
             {
                 Account data = new Account();
                 data.name = accountId;
@@ -495,8 +481,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
 
                 var grantBlocks = new Dictionary<string, DateTime>();
                 GenericData.SetSecurePlayerDataJson(accountId, "grantBlocks", grantBlocks, password);
-            }
-            DropUpdateLock(accountId, playerLock);
+            });
             return true;
         }
 
@@ -509,42 +494,11 @@ namespace PraxisCreatureCollectorPlugin.Controllers
             if (cache.TryGetValue("possible-" + plusCode8, out List<long> results))
                 return results;
 
-            //Generate the list of creatures that appear in the spawn table, but not the actual spawn tables.
-            GeoArea box = plusCode8.ToGeoArea();
-            List<long> localSpawnTable = new List<long>(20);
-            List<FindPlaceResult> terrainInfo;
+            var spawn = GenerateSpawnTable(plusCode8, out _);
+            var possible = spawn.Distinct().Select(s => s.id).ToList();
 
-            var timeShift = OpenLocationCode.CodeAlphabet.IndexOf(plusCode8[1]) - 9; //OpenLocationCode.CodeAlphabet.IndexOf('F') == 9
-            var shiftedTime = DateTime.UtcNow.AddHours(timeShift).AddMinutes(timeShift * 24);
-
-            var places = PraxisCore.Place.GetPlaces(box);
-            places = places.Where(p => p.GameElementName != TagParser.defaultStyle.Name).ToList();
-            terrainInfo = AreaTypeInfo.SearchArea(ref box, ref places);
-
-            //check terrain
-            foreach (var t in terrainInfo)
-                if (terrainSpawnTables.ContainsKey(t.data.areaType))
-                    localSpawnTable.AddRange(terrainSpawnTables[t.data.areaType].Where(t => t.CanSpawnNow(shiftedTime)).Select(c => c.id).Distinct()); //Each cell10 adds its type's list to the spawn pool
-
-            //check areas.
-            foreach (var a in areaSpawnTables.Keys)
-            {
-                if (plusCode8.StartsWith(a))
-                {
-                    localSpawnTable.AddRange(areaSpawnTables[a].Where(t => t.CanSpawnNow(shiftedTime)).Select(c => c.id).Distinct());
-                }
-            }
-
-            //check places.
-            foreach (var p in places)
-            {
-                if (placeSpawnTables.ContainsKey(p.GameElementName))
-                    localSpawnTable.AddRange(placeSpawnTables[p.GameElementName].Where(t => t.CanSpawnNow(shiftedTime)).Select(c => c.id).Distinct());
-            }
-
-            var final = localSpawnTable.Distinct().ToList();
-            cache.Set("possible-" + plusCode8, final, AbsoluteExpiration15Min);
-            return final;
+            cache.Set("possible-" + plusCode8, possible, AbsoluteExpiration15Min);
+            return possible;
         }
 
         [HttpPut]
@@ -557,7 +511,6 @@ namespace PraxisCreatureCollectorPlugin.Controllers
 
             long vortexMin = config.CreatureCountToRespawn;
             Response.Headers.Add("X-noPerfTrack", "Creature/Vortex/VARSREMOVED");
-            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
 
             //Sanity checks
             if (plusCode8.Length != 8)
@@ -569,12 +522,11 @@ namespace PraxisCreatureCollectorPlugin.Controllers
 
             var results = new Dictionary<long, long>(); //id, count
 
-            var playerLock = GetUpdateLock(accountId);
-            lock (playerLock)
+            SimpleLockable.PerformWithLock(accountId, () =>
             {
                 int actualCaughtTotal = 0;
                 var baseGeoArea = plusCode8.ToGeoArea().PadGeoArea(ConstantValues.resolutionCell8);
-                var allCreatures = GenericData.GetAllDataInArea(baseGeoArea).Where(d => d.key == "creature");
+                var allCreatures = GenericData.GetAllDataInArea(baseGeoArea, "creature");
 
                 List<Guid> recentlyCaught = new List<Guid>();
                 Dictionary<long, PlayerCreatureInfo> creatureData = new Dictionary<long, PlayerCreatureInfo>();
@@ -590,7 +542,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
 
                     foreach (var c in allCreatures)
                     {
-                        var creatureInstance = c.value.FromJsonTo<CreatureInstance>();
+                        var creatureInstance = c.DataValue.FromJsonBytesTo<CreatureInstance>();
                         if (recentlyCaught.Count() > 499)
                             recentlyCaught.RemoveAt(0);
                         if (!recentlyCaught.Contains(creatureInstance.uid))
@@ -614,15 +566,14 @@ namespace PraxisCreatureCollectorPlugin.Controllers
                         }
                     }
                 }
-                
-                if (actualCaughtTotal < vortexMin) //don't save, this is mostly a waste of a token and probably an accidental button tap.
+
+                if (actualCaughtTotal >= vortexMin) //don't save, this is mostly a waste of a token and probably an accidental button tap.
                 {
-                    return null;
+                    GenericData.SetSecurePlayerDataJson(accountId, "account", account, password);
+                    GenericData.SetSecurePlayerDataJson(accountId, "creatureInfo", creatureData, password);
+                    GenericData.SetSecurePlayerDataJson(accountId, "recentlyCaught", recentlyCaught, password);
                 }
-                GenericData.SetSecurePlayerDataJson(accountId, "account", account, password);
-                GenericData.SetSecurePlayerDataJson(accountId, "creatureInfo", creatureData, password);
-                GenericData.SetSecurePlayerDataJson(accountId, "recentlyCaught", recentlyCaught, password);
-            }
+            });
 
             return results;
         }

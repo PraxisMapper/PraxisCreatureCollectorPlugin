@@ -9,18 +9,17 @@
 
     </div>
     <script type="text/javascript">
-        var baseSite = window.location.href.toLowerCase().replace("/tibo/slippy", "");
+        var baseSite = window.location.href.toLowerCase().replace("/tibo/slippy", "").replace("/slippy/tibo", "");
         var url = baseSite + '/{id}/{z}/{x}/{y}.png';
         var baseData = L.tileLayer(url, {id: "MapTile/Slippy", tileSize:512, maxZoom: 20, minZoom: 5, zoomOffset: -1 });
        
         var biomes = L.tileLayer(url, { id: "MapTile/Slippy/biomes", tileSize: 512, maxZoom: 20, minZoom: 5, zoomOffset: -1 });
-        //these 2 might be area data
-        var tc = L.tileLayer(url, { id: "MapTile/SlippyPlaceData/TC", tileSize: 512, maxZoom: 20, minZoom: 5, zoomOffset: -1 });
-        var compete = L.tileLayer(url, { id: "MapTile/SlippyAreaData/Compete", tileSize: 512, maxZoom: 20, minZoom: 5, zoomOffset: -1 });
+        var control = L.tileLayer(url, { id: "MapTile/Slippy/TC", tileSize: 512, maxZoom: 20, minZoom: 5, zoomOffset: -1 });
+        var compete = L.tileLayer(url, { id: "MapTile/CompeteOverlaySlippy", tileSize: 512, maxZoom: 20, minZoom: 5, zoomOffset: -1 });
 
         var overlays = {
-            "Biomes" : biomes,
-            "Control": tc,
+            "Biomes" : biomes, 
+            "Control": control,
             "Compete": compete
         };
 
@@ -39,8 +38,8 @@
                 mymap.setView([startLat, startLon], 15);
             })
         );
-
-        L.tileLayer(baseSite + '/MapTile/Slippy/mapTiles/{z}/{x}/{y}.png', {
+         
+    L.tileLayer(baseSite + '/MapTile/Slippy/mapTiles/{z}/{x}/{y}.png', {
     maxZoom: 20,
     minZoom: 5,
     zoom: 15,

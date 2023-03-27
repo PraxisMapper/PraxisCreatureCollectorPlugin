@@ -1,29 +1,38 @@
 ﻿using Google.OpenLocationCode;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using NetTopologySuite.Geometries;
 using PraxisCore;
 using PraxisCore.Support;
-using System.Text.Json;
-using static PraxisCreatureCollectorPlugin.CommonHelpers;
-using static PraxisCore.DbTables;
 using PraxisMapper.Classes;
+using System.Text.Json;
+using static PraxisCore.DbTables;
 
-namespace PraxisCreatureCollectorPlugin.Controllers
-{
-    public class CoverController : Controller
-    {
+namespace PraxisCreatureCollectorPlugin.Controllers {
+    public class CoverController : Controller {
         //COVER is the name for the mode where you place creature fragments to generate coverage areas.
         //They don't overlap, but you get points for how much total unique area is covered.
         //PVP version is Compete mode to stick to alliterative entries.
+        private readonly IConfiguration Configuration;
+
+        string accountId, password;
+        public override void OnActionExecuting(ActionExecutingContext context) {
+            base.OnActionExecuting(context);
+            PraxisAuthentication.GetAuthInfo(Response, out accountId, out password);
+        }
+
+        public CoverController(IConfiguration config) {
+            Configuration = config;
+        }
 
         [HttpGet]
         [Route("/[controller]/Leaderboards")]
-        public string PlaceCreaturesLeaderboards()
-        {
+        public string PlaceCreaturesLeaderboards() {
             //Player's score for this mode (placing creatures to make circles PVE) is not saved as secure, since it doesn't tell the owner anything about location.
             //NOTE: 788,122,959 is the value required to entirely cover Ohio, including the parts of Lake Erie inside the border.
+            //TODO: cache this, it could be heavy-duty to read and convert all scores every time someone checks.
             var data = GenericData.GetAllPlayerDataByKey("coverScore")
-                .Select(k => new { k.DeviceID, score = k.DataValue.ToUTF8String().ToLong() })
+                .Select(k => new { k.accountId, score = k.DataValue.ToUTF8String().ToLong() })
                 .OrderByDescending(k => k.score)
                 .Take(25);
             return JsonSerializer.Serialize(data);
@@ -31,26 +40,21 @@ namespace PraxisCreatureCollectorPlugin.Controllers
 
         [HttpGet]
         [Route("/[controller]/Placed/{pluscode10}")]
-        public CoverModeEntry GetPlacedCreature(string pluscode10)
-        {
+        public CoverModeEntry GetPlacedCreature(string pluscode10) {
             Response.Headers.Add("X-noPerfTrack", "Cover/Placed/VARSREMOVED");
-            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
 
             var response = GenericData.GetSecurePlayerData<Dictionary<string, CoverModeEntry>>(accountId, "placedCreatures", password);
             if (response == null)
                 return new CoverModeEntry();
 
-            var tappedArea = Singletons.pgf.Create(pluscode10.ToPolygon());
+            var tappedArea = Singletons.preparedGeometryFactory.Create(pluscode10.ToPolygon());
             CoverModeEntry results = null;
             Geometry resultsSize = null;
-            foreach(var pcm in response.Values)
-            {
+            foreach (var pcm in response.Values) {
                 var thisArea = pcm.locationCell10.ToGeoArea();
                 var thisCreatureGeo = new Point(thisArea.CenterLongitude, thisArea.CenterLatitude).Buffer(pcm.scouting * ConstantValues.resolutionCell10);
-                if (tappedArea.Intersects(thisCreatureGeo))
-                {
-                    if (resultsSize == null || thisCreatureGeo.Area < resultsSize.Area)
-                    {
+                if (tappedArea.Intersects(thisCreatureGeo)) {
+                    if (resultsSize == null || thisCreatureGeo.Area < resultsSize.Area) {
                         resultsSize = thisCreatureGeo;
                         results = pcm;
                     }
@@ -62,10 +66,8 @@ namespace PraxisCreatureCollectorPlugin.Controllers
 
         [HttpGet]
         [Route("/[controller]/Placed/")]
-        public Dictionary<string, CoverModeEntry> GetPlacedCreatureList()
-        {
+        public Dictionary<string, CoverModeEntry> GetPlacedCreatureList() {
             //TODO: this might not be used, remove it? Or save this for future use?
-            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
             var response = GenericData.GetSecurePlayerData<Dictionary<string, CoverModeEntry>>(accountId, "placedCreatures", password);
             return response;
         }
@@ -78,11 +80,8 @@ namespace PraxisCreatureCollectorPlugin.Controllers
             Response.Headers.Add("X-noPerfTrack", "Cover/Placed/VARSREMOVED");
             if (!DataCheck.IsInBounds(plusCode10))
                 return returnValue;
-            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
 
-            var playerLock = GetUpdateLock(accountId);
-            lock (playerLock)
-            {
+            SimpleLockable.PerformWithLock(accountId, () => {
                 var creatureData = GenericData.GetSecurePlayerData<Dictionary<long, PlayerCreatureInfo>>(accountId, "creatureInfo", password);
                 var thisCreature = creatureData[creatureId];
                 var placedDict = GenericData.GetSecurePlayerData<Dictionary<string, CoverModeEntry>>(accountId, "placedCreatures", password);
@@ -93,8 +92,7 @@ namespace PraxisCreatureCollectorPlugin.Controllers
                 var point = new Point(area.CenterLongitude, area.CenterLatitude);
 
                 placedDict.TryGetValue(plusCode10, out var creature);
-                if (creature == null)
-                {
+                if (creature == null) {
                     creature = new CoverModeEntry();
                     placedDict.Add(plusCode10, creature);
                     returnValue = fragmentsUsed;
@@ -119,27 +117,23 @@ namespace PraxisCreatureCollectorPlugin.Controllers
                 var allGeoArea = placedDict.Values.Select(p => p.locationCell10.ToGeoArea().ToPoint().Buffer(p.scouting * ConstantValues.resolutionCell10)).ToList();
                 var mergedGeo = NetTopologySuite.Operation.Union.CascadedPolygonUnion.Union(allGeoArea); //This should be the optimal call for this logic.
 
-                long playerScore = (long)(mergedGeo.Area / (ConstantValues.resolutionCell10 * ConstantValues.resolutionCell10));
+                long playerScore = (long)(mergedGeo.Area / ConstantValues.squareCell10Area);
                 GenericData.SetPlayerData(accountId, "coverScore", playerScore.ToString().ToByteArrayUTF8());
                 GenericData.SetSecurePlayerDataJson(accountId, "placedCreatures", placedDict, password);
                 GenericData.SetSecurePlayerDataJson(accountId, "creatureInfo", creatureData, password);
-            }
-            DropUpdateLock(accountId, playerLock);
+            });
             return returnValue;
         }
 
         [HttpGet]
         [Route("/MapTile/PlacedOverlay/{plusCode}")]
         [Route("/[controller]/PlacedOverlay/{plusCode}")]
-        public ActionResult DrawPlacedCreatureMapOverlayTile(string plusCode)
-        {
+        public ActionResult DrawPlacedCreatureMapOverlayTile(string plusCode) {
             Response.Headers.Add("X-noPerfTrack", "Cover/PlacedOverlay/VARSREMOVED");
-            if (!DataCheck.IsInBounds(plusCode))
-            {
+            if (!DataCheck.IsInBounds(plusCode)) {
                 Response.Headers.Add("X-notes", "OOB");
                 return StatusCode(500);
             }
-            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
             var geoArea = plusCode.ToPolygon();
 
             //get placed creatures.
@@ -148,12 +142,10 @@ namespace PraxisCreatureCollectorPlugin.Controllers
                 creatures = new Dictionary<string, CoverModeEntry>();
 
             List<DbTables.Place> mapItems = new List<DbTables.Place>();
-            foreach (var c in creatures)
-            {
+            foreach (var c in creatures) {
                 //We will use the CENTER for drawing these, since that looks better on maps and is what everyone expects to see.
-                var area = c.Value.locationCell10.ToGeoArea();
                 var radius = c.Value.scouting;
-                var point = new Point(area.CenterLongitude, area.CenterLatitude);
+                var point = c.Value.locationCell10.ToGeoArea().ToPoint();
                 //NOTE: I think it might be faster to make squares that have the same radius, and check those for intersection, THEN buffer the ones that intersect the area.
                 //Buffer creates 33 point circle, but making 5 points for a closed polygon is almost certainly faster than 33 in the buffer.
                 var intersectCheck = new Polygon(new LinearRing(new Coordinate[] {
@@ -163,23 +155,22 @@ namespace PraxisCreatureCollectorPlugin.Controllers
                     new Coordinate(point.X + radius, point.Y - radius),
                     new Coordinate(point.X - radius, point.Y - radius)})
                 );
-                if (intersectCheck.Intersects(geoArea))
-                {
+                if (intersectCheck.Intersects(geoArea)) {
                     ICollection<PlaceTags> tags = new List<PlaceTags>() {
                         new PlaceTags() { Key = "generated", Value = "true" },
                         new PlaceTags() { Key = "creatureId", Value = c.Value.creatureId.ToString() },
                     };
                     var drawnGeo = point.Buffer(c.Value.scouting * ConstantValues.resolutionCell10);
-                    mapItems.Add(new DbTables.Place() { Tags = tags, ElementGeometry = drawnGeo, AreaSize = drawnGeo.Area, GameElementName = c.Value.creatureId.ToString() });
+                    var place = new DbTables.Place() { Tags = tags, ElementGeometry = drawnGeo}; 
+                    mapItems.Add(place);
                 }
             }
-
-            //TODO shortcut: return empty image if mapitems is empty
+            TagParser.ApplyTags(mapItems, "Cover");
 
             //draw map tile here. These don't get cached on the server, so the client should wipe any images when a creature is placed in Cover mode and ask to redraw them.
             ImageStats stats = new ImageStats(plusCode);
-            var paintOps = MapTileSupport.GetPaintOpsForPlacesParseTags(mapItems, "Cover", stats); //This only works if there's an entry for each.TagParser doesn't work here.
-            var mapTile = MapTileSupport.MapTiles.DrawAreaAtSize(stats, paintOps);
+
+            var mapTile = MapTileSupport.MapTiles.DrawAreaAtSize(stats, mapItems, "Cover");
 
             return File(mapTile, "image/png");
         }
@@ -187,11 +178,9 @@ namespace PraxisCreatureCollectorPlugin.Controllers
         [HttpGet]
         [Route("/MapTile/PlacedFull/")]
         [Route("/[controller]/PlacedFull/")]
-        public ActionResult DrawPlacedCreatureFullMap()
-        {
-            //This one is for drawing an image of your whole range of placed creatures. May need caps on maximum area, and should attempt to cover most of the area or drop single outliers first.
+        public ActionResult DrawPlacedCreatureFullMap() {
+            //This one is for drawing an image of your whole range of placed creatures
             Response.Headers.Add("X-noPerfTrack", "Cover/PlacedFull/VARSREMOVED");
-            PraxisAuthentication.GetAuthInfo(Response, out var accountId, out var password);
 
             //get placed creatures.
             var creatures = GenericData.GetSecurePlayerData<Dictionary<string, CoverModeEntry>>(accountId, "placedCreatures", password);
@@ -200,9 +189,8 @@ namespace PraxisCreatureCollectorPlugin.Controllers
 
             List<DbTables.Place> mapItems = new List<DbTables.Place>();
 
-            foreach (var c in creatures)
-            {
-                if (c.Value.scouting == 0)
+            foreach (var c in creatures) {
+                if (c.Value.scouting == 0) //Shouldn't happen. May be a testing thing on my debug account. TODO remove
                     continue;
 
                 //We will use the CENTER for drawing these, since that looks better on maps and is what everyone expects to see.
@@ -212,7 +200,9 @@ namespace PraxisCreatureCollectorPlugin.Controllers
                         new PlaceTags() { Key = "creatureId", Value = c.Value.creatureId.ToString() },
                     };
                 var drawnGeo = point.Buffer(c.Value.scouting * .000125);
-                mapItems.Add(new DbTables.Place() { Tags = tags, ElementGeometry = drawnGeo, AreaSize = drawnGeo.Area, GameElementName = c.Value.creatureId.ToString() });
+                var place = new DbTables.Place() { Tags = tags, ElementGeometry = drawnGeo, StyleName = c.Value.creatureId.ToString() };
+                place.DrawSizeHint = GeometrySupport.CalculateDrawSizeHint(place);
+                mapItems.Add(place);
             }
 
             if (mapItems.Count == 0)
@@ -228,13 +218,14 @@ namespace PraxisCreatureCollectorPlugin.Controllers
             var EWbuffer = (eastExtent - westExtent) * .05;
 
             //Odds are good a player has entries across the whole state, so draw the play boundaries to provide some context to the player.
-            mapItems.Insert(0, CreatureCollectorGlobals.playBoundary);
+            mapItems.Insert(0, new DbTables.Place() { ElementGeometry = CreatureCollectorGlobals.playBoundary,  StyleName = "borders" });
 
             GeoArea fullDrawing = new GeoArea(southExtent - NSbuffer, westExtent - EWbuffer, northExtent + NSbuffer, eastExtent + EWbuffer);
             ImageStats stats = new ImageStats(fullDrawing, 1080, 1920);
+            //TODO: scale this to the full drawing area's proportions, not the phone screen's.
+            stats = MapTileSupport.ScaleBoundsCheck(stats, Configuration["adminPreviewImageMaxEdge"].ToInt(), 1080);
             stats.filterSize = stats.degreesPerPixelY; //Don't draw circles too small to see on-screen.
-            var paintOps = MapTileSupport.GetPaintOpsForPlacesParseTags(mapItems, "Cover", stats);
-            var mapTile = MapTileSupport.MapTiles.DrawAreaAtSize(stats, paintOps);
+            var mapTile = MapTileSupport.MapTiles.DrawAreaAtSize(stats, mapItems, "Cover");
 
             return File(mapTile, "image/png");
         }
